@@ -27,7 +27,7 @@
             height: 100vh;
             touch-action: none; /* HP: geser layar = putar kamera, bukan scroll halaman */
         }
-        body { overscroll-behavior: none; /* cegah pull-to-refresh saat main */ }
+        body { margin: 0; overflow: hidden; overscroll-behavior: none; /* cegah scroll & pull-to-refresh saat main */ }
         /* HP: panel modal tidak meluber di layar pendek */
         div[id$="-modal"] > div { max-height: 92dvh; overflow-y: auto; }
         /* HP: hindari poni/notch */
@@ -2478,11 +2478,17 @@
         // HP: geser 1 jari di area 3D untuk memutar kamera (dilacak per jari)
         let camTouchId = null;
         renderer.domElement.addEventListener('touchstart', (e) => {
-            if (camTouchId === null && e.touches.length > 0) {
-                camTouchId = e.touches[0].identifier;
+            // BUG LAMA: e.touches[0] = sentuhan TERTUA di layar (mis. jempol di dpad),
+            // bukan sentuhan di kanvas -> ID nyangkut & kamera mati permanen sampai reload.
+            // changedTouches[0] = sentuhan yang BARU dimulai di kanvas ini. Selalu benar.
+            const t = e.changedTouches[0];
+            const trackedStillDown = camTouchId !== null &&
+                Array.prototype.some.call(e.touches, (x) => x.identifier === camTouchId);
+            if (t && (camTouchId === null || !trackedStillDown)) {
+                camTouchId = t.identifier;
                 isDraggingCamera = true;
-                prevMouseX = e.touches[0].clientX;
-                prevMouseY = e.touches[0].clientY;
+                prevMouseX = t.clientX;
+                prevMouseY = t.clientY;
             }
         }, { passive: true });
         renderer.domElement.addEventListener('touchmove', (e) => {
@@ -2509,6 +2515,10 @@
         };
         renderer.domElement.addEventListener('touchend', endCamTouch);
         renderer.domElement.addEventListener('touchcancel', endCamTouch);
+        // Jari yang meleset keluar kanvas (ke tombol HUD) tidak memicu touchend kanvas,
+        // jadi lepas juga di level window agar drag tidak nyangkut.
+        window.addEventListener('touchend', endCamTouch);
+        window.addEventListener('touchcancel', endCamTouch);
 
         // Emote Sapa & Joget
         document.getElementById('btn-wave').addEventListener('click', () => {
