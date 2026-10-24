@@ -1057,6 +1057,17 @@
         };
         const MP_COLORS = [0x3b82f6, 0xec4899, 0x8b5cf6, 0xf97316, 0x14b8a6, 0xeab308];
         const MP_PREFIX = 'pulaukomunitas-v1-';
+        // Jaringan lambat: tanpa TURN, koneksi langsung yang gagal = tidak bisa gabung sama sekali.
+        // TURN ini relay publik (OpenRelay) sebagai cadangan saat koneksi langsung gagal/blocked.
+        const MP_RTC_CONFIG = {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:openrelay.metered.ca:80' },
+                { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+                { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+                { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
+            ]
+        };
         function mpTotalXP() {
             return Object.values(playerState.skills).reduce(function (a, s) { return a + (s.level - 1) * 100 + s.xp; }, 0);
         }
@@ -1079,7 +1090,7 @@
             mpReadName();
             MP.code = mpGenCode();
             let peer;
-            try { peer = new Peer(MP_PREFIX + MP.code.toLowerCase()); }
+            try { peer = new Peer(MP_PREFIX + MP.code.toLowerCase(), { config: MP_RTC_CONFIG }); }
             catch (e) { mpToast('Gagal membuat room 😢'); return; }
             MP.peer = peer;
             peer.on('open', function () {
@@ -1121,7 +1132,7 @@
             mpReadName();
             MP.code = code;
             let peer;
-            try { peer = new Peer(); }
+            try { peer = new Peer({ config: MP_RTC_CONFIG }); }
             catch (e) { mpToast('Gagal gabung room 😢'); return; }
             MP.peer = peer;
             // BUGFIX ROOM: gabung dulu sering gagal padahal kode benar, karena:
@@ -1133,10 +1144,11 @@
             const giveUp = function (msg) { mpToast(msg); mpCleanupPeer(); };
             const scheduleRetry = function () {
                 if (joinDone || MP.peer !== peer || retryPending) return;
-                if (tries < 3) {
+                // Ping lambat: 5x percobaan, jeda 3 detik (total ~15 detik) — dulu cuma 3x/2 detik.
+                if (tries < 5) {
                     retryPending = true;
-                    mpToast('Mencari room... (' + tries + '/3) 🔍');
-                    setTimeout(function () { retryPending = false; tryConnect(); }, 2000);
+                    mpToast('Mencari room... (' + tries + '/5) 🔍');
+                    setTimeout(function () { retryPending = false; tryConnect(); }, 3000);
                 } else {
                     giveUp('Kode room tidak ditemukan 🔍');
                 }
@@ -1146,6 +1158,14 @@
                 tries++;
                 const conn = peer.connect(MP_PREFIX + code.toLowerCase(), { reliable: true });
                 MP.hostConn = conn;
+                // Anti-gantungan: di ping lambat, koneksi bisa menggantung tanpa error.
+                // Kalau 25 detik belum terbuka, tutup & coba lagi (bukan diam selamanya).
+                setTimeout(function () {
+                    if (!connOpened && MP.hostConn === conn && MP.peer === peer && !joinDone) {
+                        try { conn.close(); } catch (e) {}
+                        scheduleRetry();
+                    }
+                }, 25000);
                 conn.on('open', function () {
                     connOpened = true;
                     joinDone = true;
