@@ -1096,10 +1096,20 @@
                 });
             });
             peer.on('error', function (err) {
-                if (err.type === 'unavailable-id') mpToast('Kode dipakai, coba buat lagi 🔁');
-                else if (err.type === 'peer-unavailable') mpToast('Kode room tidak ditemukan 🔍');
-                else mpToast('Koneksi bermasalah: ' + err.type);
-                mpCleanupPeer();
+                // BUGFIX ROOM: dulu SEMUA error menghancurkan room — padahal error sesaat
+                // (jaringan tamu putus, socket drop) tidak boleh membunuh room.
+                // Akibatnya host masih menampilkan kode, tapi room sudah mati,
+                // sehingga tamu dengan kode BENAR pun dapat "tidak ditemukan".
+                if (err.type === 'unavailable-id') {
+                    mpToast('Kode dipakai, coba buat lagi 🔁');
+                    mpLeave(true);
+                } else if (!MP.connected) {
+                    // room belum sempat terbentuk — bersihkan agar bisa coba lagi
+                    mpToast('Gagal membuat room, coba lagi 🔁');
+                    mpLeave(true);
+                } else {
+                    mpToast('Jaringan bermasalah sesaat, room tetap jalan 📶');
+                }
             });
         }
 
@@ -1114,10 +1124,31 @@
             try { peer = new Peer(); }
             catch (e) { mpToast('Gagal gabung room 😢'); return; }
             MP.peer = peer;
-            peer.on('open', function () {
+            // BUGFIX ROOM: gabung dulu sering gagal padahal kode benar, karena:
+            //  1) host baru dibuat & belum terdaftar di server saat tamu langsung gabung,
+            //  2) koneksi gagal tanpa handler (gantungan diam-diam),
+            //  3) satu error langsung menghancurkan percobaan.
+            // Sekarang: coba otomatis 3x (jeda 2 detik), putus hanya kalau sudah tersambung.
+            let tries = 0, connOpened = false, joinDone = false, retryPending = false;
+            const giveUp = function (msg) { mpToast(msg); mpCleanupPeer(); };
+            const scheduleRetry = function () {
+                if (joinDone || MP.peer !== peer || retryPending) return;
+                if (tries < 3) {
+                    retryPending = true;
+                    mpToast('Mencari room... (' + tries + '/3) 🔍');
+                    setTimeout(function () { retryPending = false; tryConnect(); }, 2000);
+                } else {
+                    giveUp('Kode room tidak ditemukan 🔍');
+                }
+            };
+            const tryConnect = function () {
+                if (MP.peer !== peer || joinDone) return;
+                tries++;
                 const conn = peer.connect(MP_PREFIX + code.toLowerCase(), { reliable: true });
                 MP.hostConn = conn;
                 conn.on('open', function () {
+                    connOpened = true;
+                    joinDone = true;
                     MP.isHost = false;
                     MP.connected = true;
                     conn.send({ t: 'hello', name: MP.name, xp: mpTotalXP() });
@@ -1125,15 +1156,21 @@
                     mpToast('Bergabung ke room ' + code + '! 🎉');
                 });
                 conn.on('data', mpGuestOnData);
-                conn.on('close', function () {
-                    mpToast('Terputus dari room 📴');
-                    mpLeave(true);
+                conn.on('error', function () {
+                    if (connOpened) { mpToast('Terputus dari host 📴'); mpLeave(true); }
+                    else scheduleRetry();
                 });
-            });
+                conn.on('close', function () {
+                    if (connOpened) { mpToast('Terputus dari room 📴'); mpLeave(true); }
+                    else scheduleRetry();
+                });
+            };
+            peer.on('open', tryConnect);
             peer.on('error', function (err) {
-                if (err.type === 'peer-unavailable') mpToast('Kode room tidak ditemukan 🔍');
-                else mpToast('Koneksi bermasalah: ' + err.type);
-                mpCleanupPeer();
+                if (joinDone) { mpToast('Jaringan bermasalah: ' + err.type + ' 📶'); return; }
+                if (err.type === 'peer-unavailable') scheduleRetry();
+                else if (err.type === 'unavailable-id') giveUp('Koneksi bermasalah, coba lagi 🔁');
+                else { mpToast('Koneksi bermasalah: ' + err.type + ', coba lagi 🔁'); mpCleanupPeer(); }
             });
         }
 
