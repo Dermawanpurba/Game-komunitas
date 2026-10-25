@@ -1978,124 +1978,142 @@
         function createCharacterMesh(bodyColor, hatColor) {
             const group = new THREE.Group();
 
-            // Celana (warna badan digelapkan) + kaki + sepatu — dulu avatar tanpa kaki!
+            // Kaki dengan ENGSEL PANGGUL — bisa mengayun saat jalan (fisika gerak)
             const pantsMat = new THREE.MeshLambertMaterial({ color: new THREE.Color(bodyColor).multiplyScalar(0.55), flatShading: true });
             const shoeMat = new THREE.MeshLambertMaterial({ color: 0x1e293b, flatShading: true });
-            [-0.2, 0.2].forEach(function (lx) {
-                const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.55, 8), pantsMat);
-                leg.position.set(lx, 0.275, 0);
+            const mkLeg = function (lx) {
+                const pivot = new THREE.Group();
+                pivot.position.set(lx, 0.45, 0);
+                const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.45, 8), pantsMat);
+                leg.position.y = -0.225;
                 leg.castShadow = true;
                 const shoe = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.14, 0.42), shoeMat);
-                shoe.position.set(lx, 0.07, 0.06);
+                shoe.position.set(0, -0.38, 0.06);
                 shoe.castShadow = true;
-                group.add(leg, shoe);
-            });
-            // Badan
+                pivot.add(leg, shoe);
+                group.add(pivot);
+                return pivot;
+            };
+            const leftLegPivot = mkLeg(-0.2);
+            const rightLegPivot = mkLeg(0.2);
+            // Badan chibi (pendek, kepala besar)
             const body = new THREE.Mesh(
-                new THREE.CylinderGeometry(0.42, 0.48, 1.0, 12),
+                new THREE.CylinderGeometry(0.40, 0.46, 0.85, 12),
                 new THREE.MeshLambertMaterial({ color: bodyColor, flatShading: true })
             );
-            body.position.y = 1.05;
+            body.position.y = 0.875;
             body.castShadow = true;
             group.add(body);
             // Ikat pinggang
             const belt = new THREE.Mesh(
-                new THREE.CylinderGeometry(0.49, 0.49, 0.12, 12),
+                new THREE.CylinderGeometry(0.47, 0.47, 0.12, 12),
                 new THREE.MeshLambertMaterial({ color: 0xf59e0b, flatShading: true })
             );
-            belt.position.y = 0.62;
+            belt.position.y = 0.55;
             group.add(belt);
             // Leher
             const neck = new THREE.Mesh(
                 new THREE.CylinderGeometry(0.16, 0.16, 0.2, 8),
-                new THREE.MeshLambertMaterial({ color: 0xfde047 })
+                new THREE.MeshLambertMaterial({ color: 0xffd9a8 })
             );
-            neck.position.y = 1.6;
+            neck.position.y = 1.35;
             group.add(neck);
 
             // Kepala
             const head = new THREE.Mesh(
-                new THREE.SphereGeometry(0.42, 14, 14),
-                new THREE.MeshLambertMaterial({ color: 0xfde047 })
+                new THREE.SphereGeometry(0.5, 16, 16),
+                new THREE.MeshLambertMaterial({ color: 0xffd9a8 })
             );
-            head.position.y = 1.95;
+            head.position.y = 1.75;
             head.castShadow = true;
             group.add(head);
 
             // Mata
             const eyeMat = new THREE.MeshBasicMaterial({ color: 0x0f172a });
-            const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 6), eyeMat);
-            eyeL.position.set(-0.14, 2.0, 0.36);
-            const eyeR = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 6), eyeMat);
-            eyeR.position.set(0.14, 2.0, 0.36);
+            const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 8), eyeMat);
+            eyeL.position.set(-0.17, 1.82, 0.44);
+            const eyeR = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 8), eyeMat);
+            eyeR.position.set(0.17, 1.82, 0.44);
             group.add(eyeL, eyeR);
+            // Kilau mata (bikin mata hidup) + pipi merona
+            const glintMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+            const glintL = new THREE.Mesh(new THREE.SphereGeometry(0.032, 6, 6), glintMat);
+            glintL.position.set(-0.19, 1.86, 0.50);
+            const glintR = new THREE.Mesh(new THREE.SphereGeometry(0.032, 6, 6), glintMat);
+            glintR.position.set(0.15, 1.86, 0.50);
+            const blushMat = new THREE.MeshBasicMaterial({ color: 0xfda4af });
+            const blushL = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 8), blushMat);
+            blushL.position.set(-0.31, 1.68, 0.42); blushL.scale.set(1, 0.7, 0.35);
+            const blushR = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 8), blushMat);
+            blushR.position.set(0.31, 1.68, 0.42); blushR.scale.set(1, 0.7, 0.35);
+            group.add(glintL, glintR, blushL, blushR);
             // Alis (ujung luar sedikit naik = ekspresi ramah)
             const browMat = new THREE.MeshBasicMaterial({ color: 0x0f172a });
-            const browL = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.035, 0.02), browMat);
-            browL.position.set(-0.14, 2.13, 0.385); browL.rotation.z = -0.12;
-            const browR = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.035, 0.02), browMat);
-            browR.position.set(0.14, 2.13, 0.385); browR.rotation.z = 0.12;
+            const browL = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.03, 0.02), browMat);
+            browL.position.set(-0.17, 1.99, 0.46); browL.rotation.z = -0.12;
+            const browR = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.03, 0.02), browMat);
+            browR.position.set(0.17, 1.99, 0.46); browR.rotation.z = 0.12;
             // Hidung + senyum + telinga
-            const skinMat = new THREE.MeshLambertMaterial({ color: 0xfde047 });
-            const nose = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 8), skinMat);
-            nose.position.set(0, 1.9, 0.4);
-            const smile = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.02, 6, 12, Math.PI), browMat);
-            smile.position.set(0, 1.8, 0.385); smile.rotation.z = Math.PI;
-            const earL = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 8), skinMat);
-            earL.position.set(-0.4, 1.95, 0);
-            const earR = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 8), skinMat);
-            earR.position.set(0.4, 1.95, 0);
+            const skinMat = new THREE.MeshLambertMaterial({ color: 0xffd9a8 });
+            const nose = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), skinMat);
+            nose.position.set(0, 1.72, 0.48);
+            const smile = new THREE.Mesh(new THREE.TorusGeometry(0.10, 0.02, 6, 12, Math.PI), browMat);
+            smile.position.set(0, 1.62, 0.49); smile.rotation.z = Math.PI;
+            const earL = new THREE.Mesh(new THREE.SphereGeometry(0.10, 8, 8), skinMat);
+            earL.position.set(-0.47, 1.75, 0);
+            const earR = new THREE.Mesh(new THREE.SphereGeometry(0.10, 8, 8), skinMat);
+            earR.position.set(0.47, 1.75, 0);
             group.add(browL, browR, nose, smile, earL, earR);
 
             // Topi Petualang
             const hatBrim = new THREE.Mesh(
-                new THREE.CylinderGeometry(0.6, 0.6, 0.08, 12),
+                new THREE.CylinderGeometry(0.68, 0.68, 0.08, 12),
                 new THREE.MeshLambertMaterial({ color: hatColor })
             );
-            hatBrim.position.y = 2.27;
+            hatBrim.position.y = 2.12;
             const hatTop = new THREE.Mesh(
-                new THREE.CylinderGeometry(0.32, 0.4, 0.3, 12),
+                new THREE.CylinderGeometry(0.30, 0.38, 0.3, 12),
                 new THREE.MeshLambertMaterial({ color: hatColor })
             );
-            hatTop.position.y = 2.43;
+            hatTop.position.y = 2.28;
             group.add(hatBrim, hatTop);
 
             // ENGSEL BAHU KIRI + LENGAN + TELAPak TANGAN KUNING (Terlihat jelas saat memanjat & memetik)
             const leftArmPivot = new THREE.Group();
-            leftArmPivot.position.set(-0.52, 1.45, 0);
+            leftArmPivot.position.set(-0.50, 1.20, 0);
             const leftArmMesh = new THREE.Mesh(
-                new THREE.CylinderGeometry(0.11, 0.11, 0.55, 8),
+                new THREE.CylinderGeometry(0.11, 0.11, 0.5, 8),
                 new THREE.MeshLambertMaterial({ color: bodyColor })
             );
             leftArmMesh.position.y = -0.25;
             const leftHand = new THREE.Mesh(
                 new THREE.SphereGeometry(0.15, 10, 10),
-                new THREE.MeshLambertMaterial({ color: 0xfde047 })
+                new THREE.MeshLambertMaterial({ color: 0xffd9a8 })
             );
-            leftHand.position.y = -0.55;
+            leftHand.position.y = -0.50;
             leftArmPivot.add(leftArmMesh, leftHand);
             group.add(leftArmPivot);
 
             // ENGSEL BAHU KANAN + LENGAN + TELAPAK TANGAN KUNING + KELAPA DI TANGAN
             const rightArmPivot = new THREE.Group();
-            rightArmPivot.position.set(0.52, 1.45, 0);
+            rightArmPivot.position.set(0.50, 1.20, 0);
             const rightArmMesh = new THREE.Mesh(
-                new THREE.CylinderGeometry(0.11, 0.11, 0.55, 8),
+                new THREE.CylinderGeometry(0.11, 0.11, 0.5, 8),
                 new THREE.MeshLambertMaterial({ color: bodyColor })
             );
             rightArmMesh.position.y = -0.25;
             const rightHand = new THREE.Mesh(
                 new THREE.SphereGeometry(0.15, 10, 10),
-                new THREE.MeshLambertMaterial({ color: 0xfde047 })
+                new THREE.MeshLambertMaterial({ color: 0xffd9a8 })
             );
-            rightHand.position.y = -0.55;
+            rightHand.position.y = -0.50;
 
             // Buah kelapa yang dipegang di telapak tangan kanan saat memetik di atas pohon
             const heldCoconut = new THREE.Mesh(
                 new THREE.SphereGeometry(0.22, 8, 8),
                 new THREE.MeshLambertMaterial({ color: 0x451a03 })
             );
-            heldCoconut.position.set(0, -0.75, 0.12);
+            heldCoconut.position.set(0, -0.68, 0.12);
             heldCoconut.visible = false;
 
             rightArmPivot.add(rightArmMesh, rightHand, heldCoconut);
@@ -2106,12 +2124,22 @@
                 new THREE.CylinderGeometry(0.02, 0.04, 2.8, 6),
                 new THREE.MeshLambertMaterial({ color: 0xd97706 })
             );
-            rod.position.set(0.55, 1.55, 1.2);
+            rod.position.set(0.55, 1.35, 1.2);
             rod.rotation.x = Math.PI / 3;
             rod.visible = false;
             group.add(rod);
 
-            group.userData = { leftArmPivot, rightArmPivot, rightHand, heldCoconut, rod };
+            // Bintang mungil gaya Muse — melayang & berputar pelan di samping kepala
+            const sparkle = new THREE.Mesh(
+                new THREE.OctahedronGeometry(0.09),
+                new THREE.MeshBasicMaterial({ color: 0x7cc4ff })
+            );
+            sparkle.position.set(0.62, 2.45, 0.1);
+            group.add(sparkle);
+
+            group.userData = { leftArmPivot, rightArmPivot, rightHand, heldCoconut, rod,
+                leftLegPivot, rightLegPivot, sparkle, walkPhase: 0, squash: 0,
+                sparkPhase: Math.random() * Math.PI * 2 };
             return group;
         }
 
@@ -3219,7 +3247,7 @@
         const actionTextEl = document.getElementById('action-text');
         const fishCursorEl = document.getElementById('fish-cursor');
 
-        function updateLabelPosition(mesh, uiObj, heightOffset = 2.9) {
+        function updateLabelPosition(mesh, uiObj, heightOffset = 2.8) {
             const pos = mesh.position.clone();
             pos.y += heightOffset;
             pos.project(camera);
@@ -3235,6 +3263,31 @@
             const x = (pos.x * 0.5 + 0.5) * window.innerWidth;
             const y = (-(pos.y * 0.5) + 0.5) * window.innerHeight;
             uiObj.wrapper.style.transform = `translate(-50%, -100%) translate(${x}px, ${y}px)`;
+        }
+
+        // FISIKA GERAK: ayun kaki-tangan sinkron saat jalan (kaki berlawanan dengan tangan),
+        // meluruh halus ke posisi diam saat berhenti.
+        function updateWalkCycle(mesh, moving, dt) {
+            const u = mesh.userData;
+            if (!u.leftLegPivot || !u.rightLegPivot) return;
+            if (moving) {
+                u.walkPhase = (u.walkPhase || 0) + dt * 11;
+                const s = Math.sin(u.walkPhase);
+                u.leftLegPivot.rotation.x = s * 0.6;
+                u.rightLegPivot.rotation.x = -s * 0.6;
+                u.leftArmPivot.rotation.x = -s * 0.5;
+                u.rightArmPivot.rotation.x = s * 0.5;
+            } else {
+                u.leftLegPivot.rotation.x *= 0.8;
+                u.rightLegPivot.rotation.x *= 0.8;
+            }
+        }
+        function updateSparkle(mesh, elapsed) {
+            const u = mesh.userData;
+            if (!u.sparkle) return;
+            u.sparkle.position.y = 2.45 + Math.sin(elapsed * 2 + (u.sparkPhase || 0)) * 0.12;
+            u.sparkle.rotation.y += 0.02;
+            u.sparkle.rotation.z = Math.sin(elapsed * 2 + (u.sparkPhase || 0)) * 0.2;
         }
 
         function animate() {
@@ -3389,9 +3442,7 @@
                     }
 
                     playerMesh.rotation.y = moveAngle;
-                    // Ayunan tangan kiri & kanan saat berjalan
-                    playerMesh.userData.leftArmPivot.rotation.x = Math.sin(elapsed * 12) * 0.55;
-                    playerMesh.userData.rightArmPivot.rotation.x = -Math.sin(elapsed * 12) * 0.55;
+                    updateWalkCycle(playerMesh, true, dt);
                 } else if (currentActivity === 'dancing') {
                     const mv = danceMoveIdx % 4;
                     const b = elapsed * 10;
@@ -3416,6 +3467,7 @@
                         RA.rotation.set(-1.4, 0, w > 0 ? 0.2 : 0.9);
                     }
                 } else {
+                    updateWalkCycle(playerMesh, false, dt);
                     playerMesh.userData.leftArmPivot.rotation.x *= 0.8;
                     playerMesh.userData.rightArmPivot.rotation.x *= 0.8;
                 }
@@ -3427,13 +3479,32 @@
                     if (playerMesh.position.y <= 1.0) {
                         playerMesh.position.y = 1.0;
                         playerPhysics.vy = 0;
+                        if (!playerPhysics.isGrounded) playerMesh.userData.squash = 1;
                         playerPhysics.isGrounded = true;
                     }
+                }
+                // Pose kaki saat melayang: satu ke depan, satu ke belakang
+                if (!playerPhysics.isGrounded) {
+                    playerMesh.userData.leftLegPivot.rotation.x = -0.5;
+                    playerMesh.userData.rightLegPivot.rotation.x = 0.45;
                 }
                 // AUDIT: jaring pengaman anti-tenggelam — posisi apa pun yang bikin
                 // karakter di bawah tanah langsung dikembalikan (penyebab "karakter hilang").
                 if (playerMesh.position.y < 1.0) playerMesh.position.y = 1.0;
             }
+            // Squash & stretch: mendarat memipih sesaat lalu memantul kembali (fisika kartun)
+            (function () {
+                const u = playerMesh.userData;
+                if (u.squash > 0) {
+                    u.squash = Math.max(0, u.squash - dt * 5);
+                    const sy = 1 - 0.14 * u.squash;
+                    const sxz = 1 + 0.07 * u.squash;
+                    playerMesh.scale.set(sxz, sy, sxz);
+                } else if (playerMesh.scale.y !== 1) {
+                    playerMesh.scale.set(1, 1, 1);
+                }
+            })();
+            updateSparkle(playerMesh, elapsed);
 
             // 5. Cek Jarak Pemain dengan Objek Interaktif
             activeTarget = null;
@@ -3501,6 +3572,8 @@
                     npc.mesh.userData.leftArmPivot.rotation.z = -0.9 + Math.sin(elapsed * 10 + idx * 2) * 0.4;
                     npc.mesh.userData.rightArmPivot.rotation.z = 0.9 - Math.sin(elapsed * 10 + idx * 2) * 0.4;
                 }
+                updateWalkCycle(npc.mesh, false, dt);
+                updateSparkle(npc.mesh, elapsed);
                 updateLabelPosition(npc.mesh, npc.ui);
             });
 
@@ -3526,8 +3599,12 @@
             }
             Object.keys(MP.view).forEach(function (pid) {
                 const v = MP.view[pid];
+                const px = v.mesh.position.x, pz = v.mesh.position.z;
                 v.mesh.position.x += (v.tx - v.mesh.position.x) * 0.25;
                 v.mesh.position.z += (v.tz - v.mesh.position.z) * 0.25;
+                const moved = Math.hypot(v.mesh.position.x - px, v.mesh.position.z - pz);
+                updateWalkCycle(v.mesh, moved > 0.01, dt);
+                updateSparkle(v.mesh, elapsed);
                 let dr = v.try_ - v.mesh.rotation.y;
                 while (dr > Math.PI) dr -= Math.PI * 2;
                 while (dr < -Math.PI) dr += Math.PI * 2;
