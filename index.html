@@ -415,7 +415,7 @@
                         Gabung
                     </button>
                 </div>
-                <p class="text-[11px] text-slate-500">💡 Butuh internet. Satu jadi host, lainnya gabung pakai kode. Voice chat tetap lokal.</p>
+                <p class="text-[11px] text-slate-500">💡 Butuh internet. Yang pertama buat room otomatis jadi 👑 Room Master — bisa mengeluarkan pemain dari room.</p>
             </div>
             <div id="mp-room" class="hidden space-y-3">
                 <div class="flex items-center justify-between bg-slate-900/60 rounded-2xl px-4 py-3 border border-violet-400/30">
@@ -1047,6 +1047,8 @@
         // Host meneruskan posisi & chat ke semua tamu. Tanpa server sendiri.
         const MP = {
             peer: null, code: null, isHost: false, connected: false,
+            masterId: null,   // peer id Room Master (= host, = yang pertama masuk)
+            masterName: null,
             conns: {},        // host: peerId -> DataConnection
             hostConn: null,    // tamu: koneksi ke host
             players: {},      // host: peerId -> {name,color,x,z,ry,xp,last}
@@ -1095,6 +1097,8 @@
             MP.peer = peer;
             peer.on('open', function () {
                 MP.isHost = true;
+                MP.masterId = peer.id;   // yang pertama buat room = Room Master
+                MP.masterName = MP.name;
                 MP.connected = true;
                 mpShowRoom();
                 mpToast('Room ' + MP.code + ' dibuat! Bagikan kodenya 🎉');
@@ -1198,7 +1202,7 @@
             if (d.t === 'hello') {
                 const color = MP_COLORS[Object.keys(MP.players).length % MP_COLORS.length];
                 MP.players[conn.peer] = { name: d.name, color: color, x: 0, z: 6, ry: 0, xp: d.xp || 0, last: Date.now() };
-                conn.send({ t: 'welcome', color: color });
+                conn.send({ t: 'welcome', color: color, masterId: MP.peer.id, masterName: MP.name });
                 mpRenderRoom();
             } else if (d.t === 'pos') {
                 const p = MP.players[conn.peer];
@@ -1217,8 +1221,9 @@
         }
 
         function mpGuestOnData(d) {
-            if (d.t === 'welcome') { MP.myColor = d.color; }
-            else if (d.t === 'state') { mpSyncView(d.players); mpRenderRoom(); }
+            if (d.t === 'welcome') { MP.myColor = d.color; MP.masterId = d.masterId; MP.masterName = d.masterName; mpRenderRoom(); }
+            else if (d.t === 'kicked') { mpToast('Kamu dikeluarkan dari room oleh Room Master 👑'); mpLeave(true); }
+            else if (d.t === 'state') { if (d.master) MP.masterId = d.master; mpSyncView(d.players); mpRenderRoom(); }
             else if (d.t === 'chat') {
                 appendChatMessage(d.from, String(d.text).replace(/</g, '&lt;'), 'text-sky-300');
                 if (d.pid) mpShowRemoteBubble(d.pid, d.text);
@@ -1246,7 +1251,7 @@
                     const p = MP.players[pid];
                     if (now - p.last < 10000) snap[pid] = { name: p.name, color: p.color, x: p.x, z: p.z, ry: p.ry, xp: p.xp };
                 });
-                mpBroadcast({ t: 'state', players: snap });
+                mpBroadcast({ t: 'state', players: snap, master: MP.peer.id });
                 const list = Object.keys(snap).filter(function (k) { return k !== MP.peer.id; })
                     .map(function (k) { return Object.assign({ id: k }, snap[k]); });
                 mpSyncView(list);
@@ -1276,6 +1281,16 @@
                     delete MP.view[pid];
                 }
             });
+        }
+
+        // Hanya Room Master yang bisa menendang: kirim perintah, tutup koneksi, hapus dari daftar.
+        function mpKick(pid) {
+            if (!MP.isHost || pid === MP.peer.id) return;
+            const name = MP.players[pid] ? MP.players[pid].name : 'Pemain';
+            try { MP.conns[pid].send({ t: 'kicked' }); } catch (e) {}
+            try { MP.conns[pid].close(); } catch (e) {}
+            mpRemoveGuest(pid);
+            mpToast(name + ' dikeluarkan dari room 👑');
         }
 
         function mpRemoveGuest(pid) {
@@ -1331,7 +1346,7 @@
                 MP.view[pid].ui.wrapper.remove();
             });
             MP.view = {}; MP.players = {};
-            MP.connected = false; MP.isHost = false; MP.code = null;
+            MP.connected = false; MP.isHost = false; MP.code = null; MP.masterId = null; MP.masterName = null;
             document.getElementById('mp-setup').classList.remove('hidden');
             document.getElementById('mp-room').classList.add('hidden');
             if (!silent) mpToast('Keluar dari room 👋');
@@ -1341,7 +1356,7 @@
             document.getElementById('mp-setup').classList.add('hidden');
             document.getElementById('mp-room').classList.remove('hidden');
             document.getElementById('mp-room-code').textContent = MP.code;
-            document.getElementById('mp-room-role').textContent = MP.isHost ? '👑 Host' : '🎮 Tamu';
+            document.getElementById('mp-room-role').textContent = MP.isHost ? '👑 Room Master' : '🎮 Tamu';
             mpRenderRoom();
         }
 
@@ -1349,17 +1364,20 @@
             if (!MP.connected) return;
             const box = document.getElementById('mp-players');
             // leaderboard: gabung semua (host lihat XP tamu, tamu lihat daftar nama)
-            const all = [{ name: MP.name + ' (kamu)', xp: mpTotalXP() }];
+            const all = [{ pid: MP.peer ? MP.peer.id : null, name: MP.name + ' (kamu)', xp: mpTotalXP(), master: MP.isHost }];
             if (MP.isHost) {
-                Object.keys(MP.players).forEach(function (k) { all.push({ name: MP.players[k].name, xp: MP.players[k].xp }); });
+                Object.keys(MP.players).forEach(function (k) { all.push({ pid: k, name: MP.players[k].name, xp: MP.players[k].xp, master: false }); });
             } else {
-                Object.keys(MP.view).forEach(function (k) { all.push({ name: MP.view[k].name, xp: 0 }); });
+                Object.keys(MP.view).forEach(function (k) { all.push({ pid: k, name: MP.view[k].name, xp: 0, master: k === MP.masterId }); });
             }
             all.sort(function (a, b) { return b.xp - a.xp; });
             box.innerHTML = all.map(function (p, i) {
                 const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1) + '.';
-                return '<div class="flex justify-between text-xs bg-slate-900/60 rounded-xl px-3 py-2">' +
-                    '<span>' + medal + ' ' + String(p.name).replace(/</g, '&lt;') + '</span>' +
+                const crown = p.master ? '👑 ' : '';
+                const kick = (MP.isHost && !p.master) ?
+                    '<button data-kick="' + p.pid + '" class="ml-2 bg-rose-500/80 hover:bg-rose-400 text-white text-[10px] font-bold px-2 py-0.5 rounded-lg">Tendang ❌</button>' : '';
+                return '<div class="flex justify-between items-center text-xs bg-slate-900/60 rounded-xl px-3 py-2">' +
+                    '<span>' + medal + ' ' + crown + String(p.name).replace(/</g, '&lt;') + kick + '</span>' +
                     '<span class="font-bold text-amber-300">' + p.xp + ' XP</span></div>';
             }).join('');
             document.getElementById('mp-count').textContent = all.length + ' pemain';
@@ -3098,6 +3116,10 @@
         document.getElementById('btn-mp-create').addEventListener('click', mpCreateRoom);
         document.getElementById('btn-mp-join').addEventListener('click', mpJoinRoom);
         document.getElementById('btn-mp-leave').addEventListener('click', () => mpLeave(false));
+        document.getElementById('mp-players').addEventListener('click', function (e) {
+            const btn = e.target.closest('[data-kick]');
+            if (btn) mpKick(btn.getAttribute('data-kick'));
+        });
         document.querySelectorAll('.mp-emote').forEach(function (b) {
             b.addEventListener('click', function () { mpEmote(b.getAttribute('data-emote')); });
         });
