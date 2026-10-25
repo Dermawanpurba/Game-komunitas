@@ -405,17 +405,25 @@
                     <input id="mp-name" type="text" maxlength="16" value="Kamu_Explorer"
                         class="mt-1 w-full bg-slate-900/80 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-violet-400" />
                 </div>
+                <div>
+                    <label class="text-xs text-slate-300 font-bold">Kode room (default komunitas)</label>
+                    <input id="mp-create-code" type="text" maxlength="16" value="ngomonginAI"
+                        class="mt-1 w-full bg-slate-900/80 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-violet-400" />
+                </div>
                 <button id="btn-mp-create" class="w-full bg-violet-500 hover:bg-violet-400 text-white font-extrabold py-2.5 rounded-2xl transition">
                     🎮 Buat Room Baru
                 </button>
                 <div class="flex gap-2">
-                    <input id="mp-code" type="text" maxlength="6" placeholder="Kode room (mis. XK7P2Q)"
+                    <input id="mp-code" type="text" maxlength="16" placeholder="Kode room (mis. ngomonginAI)"
                         class="flex-1 bg-slate-900/80 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white uppercase outline-none focus:border-violet-400" />
                     <button id="btn-mp-join" class="bg-sky-500 hover:bg-sky-400 text-slate-950 font-extrabold px-5 py-2 rounded-xl transition">
                         Gabung
                     </button>
                 </div>
-                <p class="text-[11px] text-slate-500">💡 Butuh internet. Yang pertama buat room otomatis jadi 👑 Room Master — bisa mengeluarkan pemain dari room.</p>
+                <button id="btn-mp-join-default" class="w-full bg-emerald-500 hover:bg-emerald-400 text-white font-extrabold py-2 rounded-2xl transition text-sm">
+                    🏠 Gabung room komunitas 'ngomonginAI'
+                </button>
+                <p class="text-[11px] text-slate-500">💡 Butuh internet. Kode default: <b class="text-emerald-300">ngomonginAI</b> — host buat room pakai kode itu, anggota tinggal gabung. Yang pertama buat room otomatis jadi 👑 Room Master.</p>
             </div>
             <div id="mp-room" class="hidden space-y-3">
                 <div class="flex items-center justify-between bg-slate-900/60 rounded-2xl px-4 py-3 border border-violet-400/30">
@@ -1090,7 +1098,8 @@
             if (typeof Peer === 'undefined') { mpToast('Multiplayer butuh internet 🌐'); return; }
             if (MP.peer) return;
             mpReadName();
-            MP.code = mpGenCode();
+            const customCode = document.getElementById('mp-create-code').value.replace(/[^a-zA-Z0-9]/g, '').slice(0, 16);
+            MP.code = customCode || mpGenCode();
             let peer;
             try { peer = new Peer(MP_PREFIX + MP.code.toLowerCase(), { config: MP_RTC_CONFIG }); }
             catch (e) { mpToast('Gagal membuat room 😢'); return; }
@@ -1131,7 +1140,7 @@
         function mpJoinRoom() {
             if (typeof Peer === 'undefined') { mpToast('Multiplayer butuh internet 🌐'); return; }
             if (MP.peer) return;
-            const code = document.getElementById('mp-code').value.trim().toUpperCase();
+            const code = document.getElementById('mp-code').value.replace(/[^a-zA-Z0-9]/g, '').slice(0, 16);
             if (code.length < 4) { mpToast('Masukkan kode room dulu 🔑'); return; }
             mpReadName();
             MP.code = code;
@@ -1969,48 +1978,91 @@
         function createCharacterMesh(bodyColor, hatColor) {
             const group = new THREE.Group();
 
-            // Badan Kapsul
+            // Celana (warna badan digelapkan) + kaki + sepatu — dulu avatar tanpa kaki!
+            const pantsMat = new THREE.MeshLambertMaterial({ color: new THREE.Color(bodyColor).multiplyScalar(0.55), flatShading: true });
+            const shoeMat = new THREE.MeshLambertMaterial({ color: 0x1e293b, flatShading: true });
+            [-0.2, 0.2].forEach(function (lx) {
+                const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.55, 8), pantsMat);
+                leg.position.set(lx, 0.275, 0);
+                leg.castShadow = true;
+                const shoe = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.14, 0.42), shoeMat);
+                shoe.position.set(lx, 0.07, 0.06);
+                shoe.castShadow = true;
+                group.add(leg, shoe);
+            });
+            // Badan
             const body = new THREE.Mesh(
-                new THREE.CylinderGeometry(0.42, 0.48, 1.1, 12),
+                new THREE.CylinderGeometry(0.42, 0.48, 1.0, 12),
                 new THREE.MeshLambertMaterial({ color: bodyColor, flatShading: true })
             );
-            body.position.y = 0.55;
+            body.position.y = 1.05;
             body.castShadow = true;
             group.add(body);
+            // Ikat pinggang
+            const belt = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.49, 0.49, 0.12, 12),
+                new THREE.MeshLambertMaterial({ color: 0xf59e0b, flatShading: true })
+            );
+            belt.position.y = 0.62;
+            group.add(belt);
+            // Leher
+            const neck = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.16, 0.16, 0.2, 8),
+                new THREE.MeshLambertMaterial({ color: 0xfde047 })
+            );
+            neck.position.y = 1.6;
+            group.add(neck);
 
             // Kepala
             const head = new THREE.Mesh(
                 new THREE.SphereGeometry(0.42, 14, 14),
                 new THREE.MeshLambertMaterial({ color: 0xfde047 })
             );
-            head.position.y = 1.4;
+            head.position.y = 1.95;
             head.castShadow = true;
             group.add(head);
 
             // Mata
             const eyeMat = new THREE.MeshBasicMaterial({ color: 0x0f172a });
             const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 6), eyeMat);
-            eyeL.position.set(-0.14, 1.45, 0.36);
+            eyeL.position.set(-0.14, 2.0, 0.36);
             const eyeR = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 6), eyeMat);
-            eyeR.position.set(0.14, 1.45, 0.36);
+            eyeR.position.set(0.14, 2.0, 0.36);
             group.add(eyeL, eyeR);
+            // Alis (ujung luar sedikit naik = ekspresi ramah)
+            const browMat = new THREE.MeshBasicMaterial({ color: 0x0f172a });
+            const browL = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.035, 0.02), browMat);
+            browL.position.set(-0.14, 2.13, 0.385); browL.rotation.z = -0.12;
+            const browR = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.035, 0.02), browMat);
+            browR.position.set(0.14, 2.13, 0.385); browR.rotation.z = 0.12;
+            // Hidung + senyum + telinga
+            const skinMat = new THREE.MeshLambertMaterial({ color: 0xfde047 });
+            const nose = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 8), skinMat);
+            nose.position.set(0, 1.9, 0.4);
+            const smile = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.02, 6, 12, Math.PI), browMat);
+            smile.position.set(0, 1.8, 0.385); smile.rotation.z = Math.PI;
+            const earL = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 8), skinMat);
+            earL.position.set(-0.4, 1.95, 0);
+            const earR = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 8), skinMat);
+            earR.position.set(0.4, 1.95, 0);
+            group.add(browL, browR, nose, smile, earL, earR);
 
             // Topi Petualang
             const hatBrim = new THREE.Mesh(
                 new THREE.CylinderGeometry(0.6, 0.6, 0.08, 12),
                 new THREE.MeshLambertMaterial({ color: hatColor })
             );
-            hatBrim.position.y = 1.72;
+            hatBrim.position.y = 2.27;
             const hatTop = new THREE.Mesh(
                 new THREE.CylinderGeometry(0.32, 0.4, 0.3, 12),
                 new THREE.MeshLambertMaterial({ color: hatColor })
             );
-            hatTop.position.y = 1.88;
+            hatTop.position.y = 2.43;
             group.add(hatBrim, hatTop);
 
             // ENGSEL BAHU KIRI + LENGAN + TELAPak TANGAN KUNING (Terlihat jelas saat memanjat & memetik)
             const leftArmPivot = new THREE.Group();
-            leftArmPivot.position.set(-0.52, 1.05, 0);
+            leftArmPivot.position.set(-0.52, 1.45, 0);
             const leftArmMesh = new THREE.Mesh(
                 new THREE.CylinderGeometry(0.11, 0.11, 0.55, 8),
                 new THREE.MeshLambertMaterial({ color: bodyColor })
@@ -2026,7 +2078,7 @@
 
             // ENGSEL BAHU KANAN + LENGAN + TELAPAK TANGAN KUNING + KELAPA DI TANGAN
             const rightArmPivot = new THREE.Group();
-            rightArmPivot.position.set(0.52, 1.05, 0);
+            rightArmPivot.position.set(0.52, 1.45, 0);
             const rightArmMesh = new THREE.Mesh(
                 new THREE.CylinderGeometry(0.11, 0.11, 0.55, 8),
                 new THREE.MeshLambertMaterial({ color: bodyColor })
@@ -2054,7 +2106,7 @@
                 new THREE.CylinderGeometry(0.02, 0.04, 2.8, 6),
                 new THREE.MeshLambertMaterial({ color: 0xd97706 })
             );
-            rod.position.set(0.55, 1.3, 1.2);
+            rod.position.set(0.55, 1.55, 1.2);
             rod.rotation.x = Math.PI / 3;
             rod.visible = false;
             group.add(rod);
@@ -3115,6 +3167,10 @@
         });
         document.getElementById('btn-mp-create').addEventListener('click', mpCreateRoom);
         document.getElementById('btn-mp-join').addEventListener('click', mpJoinRoom);
+        document.getElementById('btn-mp-join-default').addEventListener('click', function () {
+            document.getElementById('mp-code').value = 'ngomonginAI';
+            mpJoinRoom();
+        });
         document.getElementById('btn-mp-leave').addEventListener('click', () => mpLeave(false));
         document.getElementById('mp-players').addEventListener('click', function (e) {
             const btn = e.target.closest('[data-kick]');
@@ -3163,7 +3219,7 @@
         const actionTextEl = document.getElementById('action-text');
         const fishCursorEl = document.getElementById('fish-cursor');
 
-        function updateLabelPosition(mesh, uiObj, heightOffset = 2.35) {
+        function updateLabelPosition(mesh, uiObj, heightOffset = 2.9) {
             const pos = mesh.position.clone();
             pos.y += heightOffset;
             pos.project(camera);
