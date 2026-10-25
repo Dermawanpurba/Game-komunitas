@@ -525,6 +525,7 @@
             emergencyAt: 0, // timestamp terakhir ambil makanan darurat (cooldown 10 menit)
             upgrades: { rod: false },
             missions: null,
+            cityChestOpened: false,
             campPosition: null,
             lastSaved: new Date().toISOString()
         };
@@ -743,6 +744,25 @@
                 if (typeof data.emergencyAt === 'number') playerState.emergencyAt = data.emergencyAt;
                 if (data.upgrades) Object.assign(playerState.upgrades, data.upgrades);
                 if (data.missions) playerState.missions = data.missions;
+                if (data.cityChestOpened) playerState.cityChestOpened = true;
+                // Jangan sampai spawn di laut (mis. save saat sedang berlayar)
+                (function () {
+                    const px = playerMesh.position.x, pz = playerMesh.position.z;
+                    const dHome = Math.hypot(px, pz);
+                    const dCity = Math.hypot(px - CITY.x, pz - CITY.z);
+                    const onDockL = Math.abs(px) < 1.5 && pz >= 18 && pz <= 26.5;
+                    const onCityDockL = Math.abs(px) < 1.5 && pz >= 48 && pz <= 58;
+                    const inMineL = Math.hypot(px - MINE.x, pz - MINE.z) < MINE.r;
+                    const walkable = dHome < 22.8 || onDockL || inMineL || dCity < 14.5 || onCityDockL;
+                    if (!walkable) { playerMesh.position.x = 0; playerMesh.position.z = 6; }
+                    // Perahu mengikuti pemain saat load (biar tidak tertinggal di pulau lain)
+                    if (typeof boatState !== 'undefined') {
+                        const inCityArea = dCity < 14.5 || onCityDockL;
+                        boatState.x = 0; boatState.z = inCityArea ? 54 : 28.5;
+                        boatState.heading = 0; boatState.speed = 0;
+                        if (typeof boatGroup !== 'undefined') boatGroup.position.set(boatState.x, 0.15, boatState.z);
+                    }
+                })();
                 ensureMissions();
                 if (data.playerPos) {
                     playerMesh.position.x = data.playerPos.x;
@@ -1884,7 +1904,7 @@
         scene.add(dockGroup);
         interactables.push({
             type: 'fishing',
-            position: new THREE.Vector3(0, 1.0, 25.5),
+            position: new THREE.Vector3(0, 1.0, 23.5),
             radius: 3.5,
             icon: '🎣',
             prompt: 'Lempar Kail Pancing (Tekan E)'
@@ -2194,6 +2214,336 @@
             const ui = createLabelUI(data.name, 'bg-sky-400');
             return { ...data, mesh, ui, bubbleTimer: null };
         });
+
+        /********************************************************************
+         * 4b. EKSPANSI MAP: PULAU KOTA + PERAHU + PANTAI PASIR + GUA KARANG
+         ********************************************************************/
+        const CITY = { x: 0, z: 68, r: 15 };
+        // --- Pulau Kota: pasir, daratan, plaza ---
+        const citySand = new THREE.Mesh(
+            new THREE.CylinderGeometry(15, 17, 2, 28),
+            new THREE.MeshLambertMaterial({ color: 0xfde68a, flatShading: true })
+        );
+        citySand.position.set(CITY.x, -0.3, CITY.z);
+        citySand.receiveShadow = true;
+        scene.add(citySand);
+        const cityGround = new THREE.Mesh(
+            new THREE.CylinderGeometry(13, 15, 1.6, 28),
+            new THREE.MeshLambertMaterial({ color: 0x4ade80, flatShading: true })
+        );
+        cityGround.position.set(CITY.x, 0.2, CITY.z);
+        cityGround.receiveShadow = true;
+        scene.add(cityGround);
+        const cityPlaza = new THREE.Mesh(
+            new THREE.CylinderGeometry(4, 4.5, 0.2, 20),
+            new THREE.MeshLambertMaterial({ color: 0xe7e5e4, flatShading: true })
+        );
+        cityPlaza.position.set(CITY.x, 1.05, CITY.z);
+        cityPlaza.receiveShadow = true;
+        scene.add(cityPlaza);
+        // --- Dermaga kota (cermin dermaga pulau) ---
+        const cityDockMat = new THREE.MeshLambertMaterial({ color: 0xa16207 });
+        const cityDock = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.3, 10), cityDockMat);
+        cityDock.position.set(0, 0.6, 53);
+        cityDock.castShadow = true; cityDock.receiveShadow = true;
+        scene.add(cityDock);
+        [-1.3, 1.3].forEach(function (px) {
+            const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 3, 8), cityDockMat);
+            pole.position.set(px, 0.6, 57.5);
+            scene.add(pole);
+        });
+        // --- Gedung kota (jendela terang) ---
+        const cityBuildings = [
+            { x: -7, z: 62, w: 4, h: 6, d: 4, c: 0xf59e0b },
+            { x: 7, z: 62, w: 3.5, h: 5, d: 3.5, c: 0x38bdf8 },
+            { x: -8, z: 70, w: 4, h: 7, d: 4, c: 0xf472b6 },
+            { x: 8, z: 70, w: 3, h: 4.5, d: 3, c: 0xa78bfa },
+            { x: 0, z: 77, w: 5, h: 8, d: 4, c: 0x34d399 }
+        ];
+        const winMat = new THREE.MeshBasicMaterial({ color: 0xfde68a });
+        cityBuildings.forEach(function (b) {
+            const bm = new THREE.MeshLambertMaterial({ color: b.c, flatShading: true });
+            const box = new THREE.Mesh(new THREE.BoxGeometry(b.w, b.h, b.d), bm);
+            box.position.set(b.x, 1.0 + b.h / 2, b.z);
+            box.castShadow = true; box.receiveShadow = true;
+            scene.add(box);
+            const roof = new THREE.Mesh(new THREE.BoxGeometry(b.w + 0.4, 0.3, b.d + 0.4),
+                new THREE.MeshLambertMaterial({ color: new THREE.Color(b.c).multiplyScalar(0.7), flatShading: true }));
+            roof.position.set(b.x, 1.0 + b.h + 0.15, b.z);
+            roof.castShadow = true;
+            scene.add(roof);
+            // Jendela menghadap plaza
+            const dx = CITY.x - b.x, dz = CITY.z - b.z;
+            const dl = Math.hypot(dx, dz);
+            const fx = dx / dl, fz = dz / dl;
+            const px = -fz, pz = fx;
+            const rows = [2.2, 3.7].concat(b.h > 5.5 ? [5.2] : []);
+            rows.forEach(function (wy) {
+                [-0.8, 0.8].forEach(function (off) {
+                    const win = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.7, 0.06), winMat);
+                    win.position.set(b.x + fx * (b.d / 2 + 0.06) + px * off, wy, b.z + fz * (b.d / 2 + 0.06) + pz * off);
+                    win.rotation.y = Math.atan2(fx, fz);
+                    scene.add(win);
+                });
+            });
+        });
+        // --- Lampu plaza kota ---
+        [[-3, 65], [3, 65], [-3, 71], [3, 71]].forEach(function (p) {
+            const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 2.2, 6),
+                new THREE.MeshLambertMaterial({ color: 0x334155 }));
+            pole.position.set(p[0], 2.1, p[1]);
+            scene.add(pole);
+            const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.22, 8, 8),
+                new THREE.MeshBasicMaterial({ color: 0xfde68a }));
+            lamp.position.set(p[0], 3.3, p[1]);
+            scene.add(lamp);
+        });
+        // --- Peti harta di plaza kota ---
+        const chestMat = new THREE.MeshLambertMaterial({ color: 0xb45309, flatShading: true });
+        const chestBox = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.6, 0.6), chestMat);
+        chestBox.position.set(-3.5, 1.45, 68);
+        chestBox.castShadow = true;
+        scene.add(chestBox);
+        const chestLid = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.25, 0.6),
+            new THREE.MeshLambertMaterial({ color: 0xd97706, flatShading: true }));
+        chestLid.position.set(-3.5, 1.85, 67.85);
+        chestLid.castShadow = true;
+        scene.add(chestLid);
+        interactables.push({
+            type: 'chest',
+            position: new THREE.Vector3(-3.5, 1.0, 68),
+            radius: 2.5,
+            icon: '🎁',
+            prompt: 'Buka Peti Harta (E)'
+        });
+        // --- Pulau kecil (pemberhentian scenic) ---
+        const isletSand = new THREE.Mesh(
+            new THREE.CylinderGeometry(4, 5, 1.8, 16),
+            new THREE.MeshLambertMaterial({ color: 0xfde68a, flatShading: true })
+        );
+        isletSand.position.set(14, -0.2, 42);
+        isletSand.receiveShadow = true;
+        scene.add(isletSand);
+        const palmTrunk = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.25, 2.4, 6),
+            new THREE.MeshLambertMaterial({ color: 0x78350f }));
+        palmTrunk.position.set(14, 1.9, 42);
+        palmTrunk.rotation.z = 0.15;
+        palmTrunk.castShadow = true;
+        scene.add(palmTrunk);
+        for (let i = 0; i < 6; i++) {
+            const leaf = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.08, 0.4),
+                new THREE.MeshLambertMaterial({ color: 0x16a34a, flatShading: true }));
+            const a = (i / 6) * Math.PI * 2;
+            leaf.position.set(14 + Math.cos(a) * 0.8, 3.1, 42 + Math.sin(a) * 0.8);
+            leaf.rotation.y = -a;
+            leaf.rotation.z = 0.35;
+            scene.add(leaf);
+        }
+        // --- Pantai pasir selatan: kerang, bintang laut, payung ---
+        const shellSpots = [[-12, 17], [-6, 19], [3, 20], [9, 18], [13, 15], [-15, 13], [15, 12], [0, 21]];
+        shellSpots.forEach(function (p, i) {
+            const shell = new THREE.Mesh(new THREE.SphereGeometry(0.22, 8, 6),
+                new THREE.MeshLambertMaterial({ color: i % 2 ? 0xfbcfe8 : 0xffffff, flatShading: true }));
+            shell.position.set(p[0], 0.78, p[1]);
+            shell.scale.set(1, 0.45, 0.75);
+            scene.add(shell);
+        });
+        [[-9, 18.5], [6, 19.5], [12, 17]].forEach(function (p) {
+            const star = new THREE.Mesh(new THREE.OctahedronGeometry(0.3, 0),
+                new THREE.MeshLambertMaterial({ color: 0xfb923c, flatShading: true }));
+            star.position.set(p[0], 0.8, p[1]);
+            star.scale.set(1, 0.3, 1);
+            scene.add(star);
+        });
+        const umbPole = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 2.0, 6),
+            new THREE.MeshLambertMaterial({ color: 0x78350f }));
+        umbPole.position.set(-4, 1.7, 19);
+        scene.add(umbPole);
+        const umbTop = new THREE.Mesh(new THREE.ConeGeometry(1.6, 0.8, 10),
+            new THREE.MeshLambertMaterial({ color: 0xef4444, flatShading: true }));
+        umbTop.position.set(-4, 2.8, 19);
+        umbTop.castShadow = true;
+        scene.add(umbTop);
+        // --- Gua Karang di pantai barat (3 kristal, tumbuh lagi 30 detik) ---
+        const grottoRockMat = new THREE.MeshLambertMaterial({ color: 0x78716c, flatShading: true });
+        const archL = new THREE.Mesh(new THREE.DodecahedronGeometry(1.6, 0), grottoRockMat);
+        archL.position.set(-18.5, 1.8, 9); archL.castShadow = true;
+        const archR = new THREE.Mesh(new THREE.DodecahedronGeometry(1.6, 0), grottoRockMat);
+        archR.position.set(-15.5, 1.8, 9); archR.castShadow = true;
+        const archTop = new THREE.Mesh(new THREE.DodecahedronGeometry(1.8, 0), grottoRockMat);
+        archTop.position.set(-17, 3.8, 9); archTop.castShadow = true;
+        scene.add(archL, archR, archTop);
+        const grottoCrystals = [];
+        [[-17, 9.5], [-17.8, 8.2], [-16.2, 8.2]].forEach(function (p) {
+            const c = new THREE.Mesh(new THREE.OctahedronGeometry(0.22, 0),
+                new THREE.MeshBasicMaterial({ color: 0x67e8f9 }));
+            c.position.set(p[0], 1.3, p[1]);
+            scene.add(c);
+            const rec = { mesh: c, taken: false };
+            grottoCrystals.push(rec);
+            interactables.push({
+                type: 'grotto_crystal',
+                position: new THREE.Vector3(p[0], 1.0, p[1]),
+                radius: 2.5,
+                icon: '💎',
+                prompt: 'Ambil Kristal (E)',
+                crystal: rec
+            });
+        });
+        // --- PERAHU di dermaga pulau ---
+        const boatGroup = new THREE.Group();
+        const hullMat = new THREE.MeshLambertMaterial({ color: 0x92400e, flatShading: true });
+        const hull = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.7, 3.8), hullMat);
+        hull.position.y = 0.35; hull.castShadow = true;
+        boatGroup.add(hull);
+        [-0.85, 0.85].forEach(function (gx) {
+            const rim = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.25, 3.8), hullMat);
+            rim.position.set(gx, 0.75, 0);
+            boatGroup.add(rim);
+        });
+        const deck = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.1, 3.4),
+            new THREE.MeshLambertMaterial({ color: 0xa16207 }));
+        deck.position.y = 0.65;
+        boatGroup.add(deck);
+        const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 2.6, 6),
+            new THREE.MeshLambertMaterial({ color: 0x78350f }));
+        mast.position.set(0, 2.0, -0.3);
+        boatGroup.add(mast);
+        const sailShape = new THREE.Shape();
+        sailShape.moveTo(0, 0); sailShape.lineTo(0, 2.0); sailShape.lineTo(1.4, 0.3); sailShape.closePath();
+        const sail = new THREE.Mesh(new THREE.ShapeGeometry(sailShape),
+            new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide }));
+        sail.position.set(0.05, 1.3, -0.3);
+        sail.rotation.y = Math.PI / 2;
+        boatGroup.add(sail);
+        const boatLamp = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 8),
+            new THREE.MeshBasicMaterial({ color: 0xfbbf24 }));
+        boatLamp.position.set(0, 3.4, -0.3);
+        boatGroup.add(boatLamp);
+        boatGroup.position.set(0, 0.15, 28.5);
+        scene.add(boatGroup);
+        let inBoat = false;
+        const boatState = { x: 0, z: 28.5, heading: 0, speed: 0 };
+        const boatBoardTarget = {
+            type: 'boat_board',
+            position: boatGroup.position, // referensi hidup: ikut perahu bergerak
+            radius: 3.5,
+            icon: '⛵',
+            prompt: 'Naik Perahu (E)',
+            disabled: false
+        };
+        interactables.push(boatBoardTarget);
+        const boatStopHome = {
+            type: 'boat_stop_home',
+            position: new THREE.Vector3(0, 1.0, 26),
+            radius: 5, icon: '⚓', prompt: 'Turun di Dermaga Pulau (E)', disabled: true
+        };
+        const boatStopCity = {
+            type: 'boat_stop_city',
+            position: new THREE.Vector3(0, 1.0, 54),
+            radius: 5, icon: '⚓', prompt: 'Turun di Kota (E)', disabled: true
+        };
+        interactables.push(boatStopHome, boatStopCity);
+        // --- Warga kota (ikut sistem NPC: bob, label, obrolan) ---
+        (function () {
+            const mesh = createCharacterMesh(0xf472b6, 0xfbbf24);
+            mesh.position.set(4.5, 1.0, 71);
+            mesh.rotation.y = 3.1;
+            scene.add(mesh);
+            const ui = createLabelUI('Rani_Kota', 'bg-pink-400');
+            npcObjects.push({
+                name: 'Rani_Kota', color: 0xf472b6, hat: 0xfbbf24, x: 4.5, z: 71, rot: 3.1,
+                chats: ['Selamat datang di Kota NgomonginAI! 🏙️', 'Naik perahu dari dermaga pulau, cuma sebentar kok ⛵', 'Peti harta di plaza cuma bisa dibuka sekali, jangan sampai kelewatan!'],
+                mesh: mesh, ui: ui, bubbleTimer: null
+            });
+        })();
+
+        // ---- Sistem perahu: fisika gas/rem, oleng ombak, tabrakan pulau ----
+        function boardBoat() {
+            inBoat = true;
+            boatState.speed = 0;
+            boatBoardTarget.disabled = true;
+            boatStopHome.disabled = false;
+            boatStopCity.disabled = false;
+            showToast('⛵', 'Berlayar! W/S gas & mundur, A/D belok. Dekati dermaga lalu tekan E untuk turun.');
+        }
+        function disembarkBoat(where) {
+            inBoat = false;
+            boatState.speed = 0;
+            boatBoardTarget.disabled = false;
+            boatStopHome.disabled = true;
+            boatStopCity.disabled = true;
+            if (where === 'city') {
+                playerMesh.position.set(0, 1.0, 57);
+                playerMesh.rotation.y = Math.PI;
+                showToast('🏙️', 'Sampai di Kota NgomonginAI!');
+            } else {
+                playerMesh.position.set(0, 1.0, 24);
+                playerMesh.rotation.y = 0;
+                showToast('🏝️', 'Kembali ke pulau!');
+            }
+        }
+        function updateBoat(dt, elapsed) {
+            if (currentActivity === 'dancing' && typeof stopDancing === 'function') stopDancing();
+            let throttle = 0, turn = 0;
+            if (Input.pressed('up')) throttle += 1;
+            if (Input.pressed('down')) throttle -= 1;
+            if (Input.pressed('left')) turn -= 1;
+            if (Input.pressed('right')) turn += 1;
+            boatState.speed += throttle * 0.004;
+            boatState.speed *= 0.975;
+            if (boatState.speed > 0.12) boatState.speed = 0.12;
+            if (boatState.speed < -0.05) boatState.speed = -0.05;
+            if (Math.abs(boatState.speed) > 0.01) {
+                boatState.heading += turn * 0.028 * (boatState.speed >= 0 ? 1 : -1);
+            }
+            const nx = boatState.x + Math.sin(boatState.heading) * boatState.speed;
+            const nz = boatState.z + Math.cos(boatState.heading) * boatState.speed;
+            const dHome = Math.hypot(nx, nz);
+            const dCity = Math.hypot(nx - CITY.x, nz - CITY.z);
+            const dIslet = Math.hypot(nx - 14, nz - 42);
+            // Zona turun ada di air terbuka (tidak perlu masuk lingkaran pulau);
+            // koridor kota hanya selebar papan dermaga (haluan bersandar, bukan menembus tanah)
+            const corridorCity = Math.abs(nx) < 2.6 && nz > 51.5 && nz < 54;
+            const blocked = (dHome < 22.8) ||
+                (dCity < 15 && !corridorCity) ||
+                dIslet < 4.5 || dHome > 88;
+            if (!blocked) { boatState.x = nx; boatState.z = nz; }
+            else boatState.speed = 0;
+            // Oleng ombak (fisika apung): naik-turun + miring
+            const waveY = 0.15 + Math.sin(elapsed * 2.0 + boatState.x * 0.08) * 0.10 +
+                Math.sin(elapsed * 1.6 + boatState.z * 0.11) * 0.08;
+            boatGroup.position.set(boatState.x, waveY, boatState.z);
+            boatGroup.rotation.y = boatState.heading;
+            boatGroup.rotation.z = Math.sin(elapsed * 1.3) * 0.04 - turn * 0.06;
+            boatGroup.rotation.x = Math.sin(elapsed * 1.9) * 0.03 - boatState.speed * 0.08;
+            // Penumpang ikut perahu (kaki diam, badan mengikuti ombak)
+            playerMesh.position.set(boatState.x, waveY + 0.55, boatState.z);
+            playerMesh.rotation.y = boatState.heading;
+            updateWalkCycle(playerMesh, false, dt);
+            playerMesh.userData.leftArmPivot.rotation.x *= 0.9;
+            playerMesh.userData.rightArmPivot.rotation.x *= 0.9;
+        }
+        function openCityChest() {
+            if (playerState.cityChestOpened) { showToast('📦', 'Peti sudah kosong.'); return; }
+            playerState.cityChestOpened = true;
+            playerState.inventory.crystal += 1;
+            playerState.energy = 100;
+            chestLid.rotation.x = -1.9;
+            showToast('🎁', 'Harta karun! +1💎 & energi penuh ⚡');
+            updateHUD();
+            saveGame(true);
+        }
+        function pickGrottoCrystal(item) {
+            const rec = item.crystal;
+            if (rec.taken) { showToast('⏳', 'Kristal belum tumbuh kembali.'); return; }
+            rec.taken = true;
+            rec.mesh.visible = false;
+            playerState.inventory.crystal += 1;
+            showToast('💎', 'Dapat +1💎!');
+            updateHUD();
+            setTimeout(function () { rec.taken = false; rec.mesh.visible = true; }, 30000);
+        }
 
         function showCharacterBubble(uiObj, text) {
             uiObj.bubble.textContent = text;
@@ -2758,6 +3108,13 @@
         // EKSEKUSI INTERAKSI OBJEK PULAU (Mancing, Panjat Pohon dengan Animasi Tangan, Masak, Masuk Kemah)
         function triggerInteraction() {
             if (!activeTarget || (currentActivity && currentActivity !== 'dancing')) return;
+            if (inBoat && !activeTarget.type.startsWith('boat_')) return;
+
+            if (activeTarget.type === 'boat_board') { boardBoat(); return; }
+            if (activeTarget.type === 'boat_stop_home') { disembarkBoat('home'); return; }
+            if (activeTarget.type === 'boat_stop_city') { disembarkBoat('city'); return; }
+            if (activeTarget.type === 'chest') { openCityChest(); return; }
+            if (activeTarget.type === 'grotto_crystal') { pickGrottoCrystal(activeTarget); return; }
 
             if (activeTarget.type === 'tent') {
                 toggleEnterTent();
@@ -3403,7 +3760,9 @@
             }
 
             // 4. Pergerakan Karakter, Ayunan Tangan & Fisika Lompatan
-            if (!currentActivity || currentActivity === 'dancing') {
+            if (inBoat) {
+                updateBoat(dt, elapsed);
+            } else if (!currentActivity || currentActivity === 'dancing') {
                 let moveForward = 0;
                 let moveSide = 0;
                 if (Input.pressed('up')) moveForward -= 1;
@@ -3414,7 +3773,11 @@
                 if (moveForward !== 0 || moveSide !== 0) {
                     if (currentActivity === 'dancing') stopDancing();
 
-                    const moveSpeed = 0.14;
+                    // Fisika pasir: jalan di pasir lebih lambat (gesekan tinggi)
+                    const curDist = Math.hypot(playerMesh.position.x, playerMesh.position.z);
+                    const curCity = Math.hypot(playerMesh.position.x - CITY.x, playerMesh.position.z - CITY.z);
+                    const onSand = (curDist >= 19 && curDist < 22.8) || (curCity >= 12.5 && curCity < 15);
+                    const moveSpeed = 0.14 * (onSand ? 0.7 : 1);
                     const moveAngle = Math.atan2(moveSide, moveForward) + cameraAngle;
                     const nextX = playerMesh.position.x + Math.sin(moveAngle) * moveSpeed;
                     const nextZ = playerMesh.position.z + Math.cos(moveAngle) * moveSpeed;
@@ -3435,8 +3798,11 @@
                     const onDock = Math.abs(nextX) < 1.5 && nextZ >= 18 && nextZ <= 26.5;
                     const inMine = typeof MINE !== 'undefined' &&
                         Math.hypot(nextX - MINE.x, nextZ - MINE.z) < MINE.r;
+                    const distCity = Math.hypot(nextX - CITY.x, nextZ - CITY.z);
+                    const inCity = distCity < 14.5;
+                    const onCityDock = Math.abs(nextX) < 1.5 && nextZ >= 48 && nextZ <= 58;
 
-                    if (!blockedByTree && (distCenter < 22.8 || onDock || inMine)) {
+                    if (!blockedByTree && (distCenter < 22.8 || onDock || inMine || inCity || onCityDock)) {
                         playerMesh.position.x = nextX;
                         playerMesh.position.z = nextZ;
                     }
@@ -3510,6 +3876,7 @@
             activeTarget = null;
             let minDist = Infinity;
             for (const item of interactables) {
+                if (item.disabled) continue;
                 const dist = Math.hypot(
                     playerMesh.position.x - item.position.x,
                     playerMesh.position.z - item.position.z
@@ -3520,7 +3887,9 @@
                 }
             }
 
-            if (activeTarget && (!currentActivity || currentActivity === 'dancing')) {
+            const showPrompt = activeTarget && (!currentActivity || currentActivity === 'dancing') &&
+                !(inBoat && !activeTarget.type.startsWith('boat_'));
+            if (showPrompt) {
                 actionPromptEl.classList.remove('hidden');
                 actionIconEl.textContent = activeTarget.icon;
                 actionTextEl.textContent = activeTarget.prompt;
