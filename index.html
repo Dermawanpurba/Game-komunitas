@@ -176,6 +176,14 @@
                     <span>🪨</span>
                     <span id="inv-stone" class="font-bold text-sm text-stone-300">0</span>
                 </div>
+                <div class="flex items-center gap-1.5 px-2.5 py-1 bg-slate-800/80 rounded-xl border border-slate-700" title="Koin Pasar">
+                    <span>🪙</span>
+                    <span id="inv-coin" class="font-bold text-sm text-amber-300">20</span>
+                </div>
+                <div class="flex items-center gap-1.5 px-2.5 py-1 bg-slate-800/80 rounded-xl border border-slate-700" title="Sayur">
+                    <span>🥬</span>
+                    <span id="inv-sayur" class="font-bold text-sm text-emerald-300">0</span>
+                </div>
                 <button id="btn-eat-dish" class="flex items-center gap-1.5 px-2.5 py-1 bg-slate-800/80 rounded-xl border border-slate-700 active:scale-95 transition" title="Klik untuk makan (+35 Energi)">
                     <span>🍲</span>
                     <span id="inv-dish" class="font-bold text-sm text-rose-300">0</span>
@@ -474,6 +482,31 @@
         </div>
     </div>
 
+    <div id="market-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+        <div class="glass rounded-3xl max-w-lg w-full p-6 border border-slate-700 shadow-2xl space-y-4">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center gap-2.5">
+                    <span class="text-2xl">🛒</span>
+                    <div>
+                        <h2 class="font-extrabold text-base sm:text-lg text-emerald-300">Pasar Kota NgomonginAI</h2>
+                        <p class="text-xs text-slate-400">Jual hasil pulau, beli sayur & es kelapa!</p>
+                    </div>
+                </div>
+                <button data-close-modal="market-modal" class="text-slate-400 hover:text-white text-xl font-bold px-2">&times;</button>
+            </div>
+            <div class="bg-slate-900/60 border border-amber-500/40 rounded-2xl px-4 py-2.5 flex items-center gap-2">
+                <span>🪙</span><span class="text-sm text-slate-300">Koin kamu:</span>
+                <span id="market-coins" class="font-extrabold text-amber-300">0</span>
+            </div>
+            <div class="text-xs font-bold text-slate-300 tracking-wide">JUAL HASIL PULAU</div>
+            <div id="market-sell" class="space-y-2 max-h-44 overflow-y-auto"></div>
+            <div class="text-xs font-bold text-slate-300 tracking-wide">BELI</div>
+            <div id="market-buy" class="space-y-2"></div>
+            <div class="text-xs font-bold text-slate-300 tracking-wide">MAKAN (dari tas)</div>
+            <div id="market-eat" class="space-y-2"></div>
+        </div>
+    </div>
+
     <div id="github-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
         <div class="glass rounded-3xl max-w-lg w-full p-6 border border-slate-700 shadow-2xl space-y-4">
             <div class="flex justify-between items-center">
@@ -519,13 +552,18 @@
                 dish: 0,
                 crab: 0,
                 crystal: 0,
-                stone: 0
+                stone: 0,
+                coin: 20,
+                sayur: 0,
+                shell: 0,
+                eskelapa: 0
             },
             energy: 100,
             emergencyAt: 0, // timestamp terakhir ambil makanan darurat (cooldown 10 menit)
             upgrades: { rod: false },
             missions: null,
             cityChestOpened: false,
+            garden: [null, null, null],
             campPosition: null,
             lastSaved: new Date().toISOString()
         };
@@ -678,6 +716,8 @@
             document.getElementById('inv-crab').textContent = playerState.inventory.crab;
             document.getElementById('inv-crystal').textContent = playerState.inventory.crystal;
             document.getElementById('inv-stone').textContent = playerState.inventory.stone;
+            document.getElementById('inv-coin').textContent = playerState.inventory.coin;
+            document.getElementById('inv-sayur').textContent = playerState.inventory.sayur;
 
             document.getElementById('bar-energy').style.width = playerState.energy + '%';
             document.getElementById('txt-energy').textContent = Math.round(playerState.energy);
@@ -695,6 +735,7 @@
             { id:'gulai_pulau', name:'Gulai Pulau',       icon:'🍲', need:{fish:1,coconut:1},   give:2, xp:80,  minLevel:3 },
             { id:'sup_nelayan', name:'Sup Spesial Nelayan',icon:'🦐', need:{fish:2,coconut:1},   give:3, xp:120, minLevel:5 },
             { id:'kepiting_bakar', name:'Kepiting Bakar', icon:'🦀', need:{crab:1}, give:1, xp:40, minLevel:2 },
+            { id:'tumis_sayur', name:'Tumis Sayur', icon:'🥬', need:{sayur:1}, give:1, xp:35, minLevel:1 },
         ];
         const MISSION_DEFS = [
             { id:'fish2',  icon:'🎣', text:'Tangkap 2 ikan',            target:2,  skill:'fishing',  xp:50 },
@@ -745,20 +786,21 @@
                 if (data.upgrades) Object.assign(playerState.upgrades, data.upgrades);
                 if (data.missions) playerState.missions = data.missions;
                 if (data.cityChestOpened) playerState.cityChestOpened = true;
+                if (data.garden) playerState.garden = data.garden;
                 // Jangan sampai spawn di laut (mis. save saat sedang berlayar)
                 (function () {
                     const px = playerMesh.position.x, pz = playerMesh.position.z;
                     const dHome = Math.hypot(px, pz);
                     const dCity = Math.hypot(px - CITY.x, pz - CITY.z);
-                    const onDockL = Math.abs(px) < 1.5 && pz >= 18 && pz <= 26.5;
-                    const onCityDockL = Math.abs(px) < 1.5 && pz >= 48 && pz <= 58;
+                    const onDockL = Math.abs(px) < 1.5 && pz >= 31 && pz <= 40.5;
+                    const onCityDockL = Math.abs(px) < 1.5 && pz >= 55 && pz <= 65;
                     const inMineL = Math.hypot(px - MINE.x, pz - MINE.z) < MINE.r;
-                    const walkable = dHome < 22.8 || onDockL || inMineL || dCity < 14.5 || onCityDockL;
+                    const walkable = dHome < 32.5 || onDockL || inMineL || dCity < 19.5 || onCityDockL;
                     if (!walkable) { playerMesh.position.x = 0; playerMesh.position.z = 6; }
                     // Perahu mengikuti pemain saat load (biar tidak tertinggal di pulau lain)
                     if (typeof boatState !== 'undefined') {
-                        const inCityArea = dCity < 14.5 || onCityDockL;
-                        boatState.x = 0; boatState.z = inCityArea ? 54 : 28.5;
+                        const inCityArea = dCity < 19.5 || onCityDockL;
+                        boatState.x = 0; boatState.z = inCityArea ? 59 : 42;
                         boatState.heading = 0; boatState.speed = 0;
                         if (typeof boatGroup !== 'undefined') boatGroup.position.set(boatState.x, 0.15, boatState.z);
                     }
@@ -927,6 +969,7 @@
             if (r.need.fish) parts.push(r.need.fish + '🐟');
             if (r.need.coconut) parts.push(r.need.coconut + '🥥');
             if (r.need.crab) parts.push(r.need.crab + '🦀');
+            if (r.need.sayur) parts.push(r.need.sayur + '🥬');
             return parts.join(' + ');
         }
         function canCook(r) {
@@ -1052,7 +1095,7 @@
         function openModal(id) { resetKeys(); document.getElementById(id).classList.remove('hidden'); }
         function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
         function anyModalOpen() {
-            return ['github-modal', 'recipe-modal', 'mission-modal', 'shop-modal', 'mp-modal'].some(function (id) {
+            return ['github-modal', 'recipe-modal', 'mission-modal', 'shop-modal', 'market-modal', 'mp-modal'].some(function (id) {
                 return !document.getElementById(id).classList.contains('hidden');
             });
         }
@@ -1490,7 +1533,7 @@
         scene.add(ocean);
 
         // 3.2 Pasir Pantai
-        const sandGeo = new THREE.CylinderGeometry(24, 27, 2, 32);
+        const sandGeo = new THREE.CylinderGeometry(33, 37, 2, 40);
         const sandMat = new THREE.MeshLambertMaterial({ color: 0xfde68a, flatShading: true });
         const sand = new THREE.Mesh(sandGeo, sandMat);
         sand.position.y = -0.3;
@@ -1498,7 +1541,7 @@
         scene.add(sand);
 
         // 3.3 Daratan Rumput Hijau
-        const grassGeo = new THREE.CylinderGeometry(19, 21, 1.6, 32);
+        const grassGeo = new THREE.CylinderGeometry(28, 31, 1.6, 40);
         const grassMat = new THREE.MeshLambertMaterial({ color: 0x34d399, flatShading: true });
         const grass = new THREE.Mesh(grassGeo, grassMat);
         grass.position.y = 0.2;
@@ -1693,8 +1736,8 @@
         const crabs = [];
         function spawnCrab(crab) {
             const ang = Math.random() * Math.PI * 2;
-            const rad = 15 + Math.random() * 5;
-            crab.mesh.position.set(Math.cos(ang) * rad, 0.95, Math.sin(ang) * rad);
+            const rad = 28 + Math.random() * 4;
+            crab.mesh.position.set(Math.cos(ang) * rad, 0.65, Math.sin(ang) * rad);
             crab.mesh.visible = true;
             crab.caught = false;
             crab.retarget = 0;
@@ -1702,7 +1745,7 @@
         }
         function pickCrabTarget(crab) {
             const ang = Math.random() * Math.PI * 2;
-            const rad = 15 + Math.random() * 5;
+            const rad = 28 + Math.random() * 4;
             crab.tx = Math.cos(ang) * rad;
             crab.tz = Math.sin(ang) * rad;
             crab.retarget = 2 + Math.random() * 3;
@@ -1843,7 +1886,7 @@
         // ---- 3.5b Dermaga Ujung: spot mancing ikan emas (barat) ----
         const goldDock = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.3, 4),
             new THREE.MeshLambertMaterial({ color: 0xa16207 }));
-        goldDock.position.set(-10, 0.6, 22);
+        goldDock.position.set(-10, 0.6, 35);
         goldDock.castShadow = true;
         goldDock.receiveShadow = true;
         scene.add(goldDock);
@@ -1852,15 +1895,15 @@
             new THREE.MeshBasicMaterial({ color: 0xfbbf24 })
         );
         goldRing.rotation.x = Math.PI / 2;
-        goldRing.position.set(-10, 0.85, 22);
+        goldRing.position.set(-10, 0.85, 35.5);
         scene.add(goldRing);
         const goldLantern = new THREE.PointLight(0xfbbf24, 0.8, 7);
-        goldLantern.position.set(-10, 2.2, 22);
+        goldLantern.position.set(-10, 2.2, 35.5);
         scene.add(goldLantern);
         interactables.push({
             type: 'fishing_gold',
-            position: new THREE.Vector3(-10, 0.6, 22),
-            radius: 3.0,
+            position: new THREE.Vector3(-10, 0.6, 33.5),
+            radius: 3.5,
             icon: '🌟',
             prompt: 'Mancing Ikan Emas (E)'
         });
@@ -1869,12 +1912,12 @@
         const dockGroup = new THREE.Group();
         const woodDockMat = new THREE.MeshLambertMaterial({ color: 0xa16207 });
         const dockPlank = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.3, 10), woodDockMat);
-        dockPlank.position.set(0, 0.6, 22);
+        dockPlank.position.set(0, 0.6, 36);
         dockPlank.castShadow = true;
         dockPlank.receiveShadow = true;
         dockGroup.add(dockPlank);
 
-        [[-1.3, 18], [1.3, 18], [-1.3, 22], [1.3, 22], [-1.3, 26], [1.3, 26]].forEach(([px, pz]) => {
+        [[-1.3, 32], [1.3, 32], [-1.3, 36], [1.3, 36], [-1.3, 40], [1.3, 40]].forEach(([px, pz]) => {
             const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 3, 8), woodDockMat);
             pole.position.set(px, 0, pz);
             dockGroup.add(pole);
@@ -1885,7 +1928,7 @@
             new THREE.MeshBasicMaterial({ color: 0x38bdf8 })
         );
         floatRing.rotation.x = Math.PI / 2;
-        floatRing.position.set(0, -0.1, 29.5);
+        floatRing.position.set(0, -0.1, 43.5);
         dockGroup.add(floatRing);
 
         // Pelampung Kail Pancing (Bobber) Fisika + Tali Pancing
@@ -1904,7 +1947,7 @@
         scene.add(dockGroup);
         interactables.push({
             type: 'fishing',
-            position: new THREE.Vector3(0, 1.0, 23.5),
+            position: new THREE.Vector3(0, 1.0, 38),
             radius: 3.5,
             icon: '🎣',
             prompt: 'Lempar Kail Pancing (Tekan E)'
@@ -1972,13 +2015,17 @@
         createCoconutTree(-12, -7);
         createCoconutTree(-10, 8);
         createCoconutTree(4, -13);
+        createCoconutTree(20, -12);
+        createCoconutTree(-20, 10);
+        createCoconutTree(18, 14);
+        createCoconutTree(-18, -16);
 
-        for (let i = 0; i < 6; i++) {
-            const angle = (i / 6) * Math.PI * 2 + 0.3;
-            const dist = 15 + (i % 2) * 3;
+        for (let i = 0; i < 8; i++) {
+            const angle = (i / 8) * Math.PI * 2 + 0.3;
+            const dist = 24 + (i % 2) * 3;
             const rx = Math.cos(angle) * dist;
             const rz = Math.sin(angle) * dist;
-            if (rz > 16 && Math.abs(rx) < 4) continue;
+            if (rz > 28 && Math.abs(rx) < 4) continue;
 
             const bush = new THREE.Mesh(
                 new THREE.DodecahedronGeometry(0.7, 1),
@@ -2218,17 +2265,17 @@
         /********************************************************************
          * 4b. EKSPANSI MAP: PULAU KOTA + PERAHU + PANTAI PASIR + GUA KARANG
          ********************************************************************/
-        const CITY = { x: 0, z: 68, r: 15 };
+        const CITY = { x: 0, z: 85, r: 20 };
         // --- Pulau Kota: pasir, daratan, plaza ---
         const citySand = new THREE.Mesh(
-            new THREE.CylinderGeometry(15, 17, 2, 28),
+            new THREE.CylinderGeometry(20, 23, 2, 36),
             new THREE.MeshLambertMaterial({ color: 0xfde68a, flatShading: true })
         );
         citySand.position.set(CITY.x, -0.3, CITY.z);
         citySand.receiveShadow = true;
         scene.add(citySand);
         const cityGround = new THREE.Mesh(
-            new THREE.CylinderGeometry(13, 15, 1.6, 28),
+            new THREE.CylinderGeometry(18, 20, 1.6, 36),
             new THREE.MeshLambertMaterial({ color: 0x4ade80, flatShading: true })
         );
         cityGround.position.set(CITY.x, 0.2, CITY.z);
@@ -2244,21 +2291,21 @@
         // --- Dermaga kota (cermin dermaga pulau) ---
         const cityDockMat = new THREE.MeshLambertMaterial({ color: 0xa16207 });
         const cityDock = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.3, 10), cityDockMat);
-        cityDock.position.set(0, 0.6, 53);
+        cityDock.position.set(0, 0.6, 60);
         cityDock.castShadow = true; cityDock.receiveShadow = true;
         scene.add(cityDock);
         [-1.3, 1.3].forEach(function (px) {
             const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 3, 8), cityDockMat);
-            pole.position.set(px, 0.6, 57.5);
+            pole.position.set(px, 0.6, 64);
             scene.add(pole);
         });
         // --- Gedung kota (jendela terang) ---
         const cityBuildings = [
-            { x: -7, z: 62, w: 4, h: 6, d: 4, c: 0xf59e0b },
-            { x: 7, z: 62, w: 3.5, h: 5, d: 3.5, c: 0x38bdf8 },
-            { x: -8, z: 70, w: 4, h: 7, d: 4, c: 0xf472b6 },
-            { x: 8, z: 70, w: 3, h: 4.5, d: 3, c: 0xa78bfa },
-            { x: 0, z: 77, w: 5, h: 8, d: 4, c: 0x34d399 }
+            { x: -9, z: 79, w: 4, h: 6, d: 4, c: 0xf59e0b },
+            { x: 9, z: 79, w: 3.5, h: 5, d: 3.5, c: 0x38bdf8 },
+            { x: -11, z: 87, w: 4, h: 7, d: 4, c: 0xf472b6 },
+            { x: 11, z: 87, w: 3, h: 4.5, d: 3, c: 0xa78bfa },
+            { x: 0, z: 94, w: 5, h: 8, d: 4, c: 0x34d399 }
         ];
         const winMat = new THREE.MeshBasicMaterial({ color: 0xfde68a });
         cityBuildings.forEach(function (b) {
@@ -2288,7 +2335,7 @@
             });
         });
         // --- Lampu plaza kota ---
-        [[-3, 65], [3, 65], [-3, 71], [3, 71]].forEach(function (p) {
+        [[-3, 82], [3, 82], [-3, 88], [3, 88]].forEach(function (p) {
             const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 2.2, 6),
                 new THREE.MeshLambertMaterial({ color: 0x334155 }));
             pole.position.set(p[0], 2.1, p[1]);
@@ -2301,17 +2348,17 @@
         // --- Peti harta di plaza kota ---
         const chestMat = new THREE.MeshLambertMaterial({ color: 0xb45309, flatShading: true });
         const chestBox = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.6, 0.6), chestMat);
-        chestBox.position.set(-3.5, 1.45, 68);
+        chestBox.position.set(-3.5, 1.45, 85);
         chestBox.castShadow = true;
         scene.add(chestBox);
         const chestLid = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.25, 0.6),
             new THREE.MeshLambertMaterial({ color: 0xd97706, flatShading: true }));
-        chestLid.position.set(-3.5, 1.85, 67.85);
+        chestLid.position.set(-3.5, 1.85, 84.85);
         chestLid.castShadow = true;
         scene.add(chestLid);
         interactables.push({
             type: 'chest',
-            position: new THREE.Vector3(-3.5, 1.0, 68),
+            position: new THREE.Vector3(-3.5, 1.0, 85),
             radius: 2.5,
             icon: '🎁',
             prompt: 'Buka Peti Harta (E)'
@@ -2321,12 +2368,12 @@
             new THREE.CylinderGeometry(4, 5, 1.8, 16),
             new THREE.MeshLambertMaterial({ color: 0xfde68a, flatShading: true })
         );
-        isletSand.position.set(14, -0.2, 42);
+        isletSand.position.set(16, -0.2, 52);
         isletSand.receiveShadow = true;
         scene.add(isletSand);
         const palmTrunk = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.25, 2.4, 6),
             new THREE.MeshLambertMaterial({ color: 0x78350f }));
-        palmTrunk.position.set(14, 1.9, 42);
+        palmTrunk.position.set(16, 1.9, 52);
         palmTrunk.rotation.z = 0.15;
         palmTrunk.castShadow = true;
         scene.add(palmTrunk);
@@ -2334,13 +2381,13 @@
             const leaf = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.08, 0.4),
                 new THREE.MeshLambertMaterial({ color: 0x16a34a, flatShading: true }));
             const a = (i / 6) * Math.PI * 2;
-            leaf.position.set(14 + Math.cos(a) * 0.8, 3.1, 42 + Math.sin(a) * 0.8);
+            leaf.position.set(16 + Math.cos(a) * 0.8, 3.1, 52 + Math.sin(a) * 0.8);
             leaf.rotation.y = -a;
             leaf.rotation.z = 0.35;
             scene.add(leaf);
         }
         // --- Pantai pasir selatan: kerang, bintang laut, payung ---
-        const shellSpots = [[-12, 17], [-6, 19], [3, 20], [9, 18], [13, 15], [-15, 13], [15, 12], [0, 21]];
+        const shellSpots = [[-14, 26], [-7, 29], [4, 30], [11, 27], [16, 24], [-20, 21], [22, 20], [0, 30.5]];
         shellSpots.forEach(function (p, i) {
             const shell = new THREE.Mesh(new THREE.SphereGeometry(0.22, 8, 6),
                 new THREE.MeshLambertMaterial({ color: i % 2 ? 0xfbcfe8 : 0xffffff, flatShading: true }));
@@ -2348,7 +2395,7 @@
             shell.scale.set(1, 0.45, 0.75);
             scene.add(shell);
         });
-        [[-9, 18.5], [6, 19.5], [12, 17]].forEach(function (p) {
+        [[-12, 27], [8, 29], [16, 25]].forEach(function (p) {
             const star = new THREE.Mesh(new THREE.OctahedronGeometry(0.3, 0),
                 new THREE.MeshLambertMaterial({ color: 0xfb923c, flatShading: true }));
             star.position.set(p[0], 0.8, p[1]);
@@ -2357,27 +2404,27 @@
         });
         const umbPole = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 2.0, 6),
             new THREE.MeshLambertMaterial({ color: 0x78350f }));
-        umbPole.position.set(-4, 1.7, 19);
+        umbPole.position.set(-5, 1.7, 29.5);
         scene.add(umbPole);
         const umbTop = new THREE.Mesh(new THREE.ConeGeometry(1.6, 0.8, 10),
             new THREE.MeshLambertMaterial({ color: 0xef4444, flatShading: true }));
-        umbTop.position.set(-4, 2.8, 19);
+        umbTop.position.set(-5, 2.8, 29.5);
         umbTop.castShadow = true;
         scene.add(umbTop);
         // --- Gua Karang di pantai barat (3 kristal, tumbuh lagi 30 detik) ---
         const grottoRockMat = new THREE.MeshLambertMaterial({ color: 0x78716c, flatShading: true });
         const archL = new THREE.Mesh(new THREE.DodecahedronGeometry(1.6, 0), grottoRockMat);
-        archL.position.set(-18.5, 1.8, 9); archL.castShadow = true;
+        archL.position.set(-27.5, 1.5, 13); archL.castShadow = true;
         const archR = new THREE.Mesh(new THREE.DodecahedronGeometry(1.6, 0), grottoRockMat);
-        archR.position.set(-15.5, 1.8, 9); archR.castShadow = true;
+        archR.position.set(-24.5, 1.5, 13); archR.castShadow = true;
         const archTop = new THREE.Mesh(new THREE.DodecahedronGeometry(1.8, 0), grottoRockMat);
-        archTop.position.set(-17, 3.8, 9); archTop.castShadow = true;
+        archTop.position.set(-26, 3.5, 13); archTop.castShadow = true;
         scene.add(archL, archR, archTop);
         const grottoCrystals = [];
-        [[-17, 9.5], [-17.8, 8.2], [-16.2, 8.2]].forEach(function (p) {
+        [[-26, 13.5], [-26.8, 12.2], [-25.2, 12.2]].forEach(function (p) {
             const c = new THREE.Mesh(new THREE.OctahedronGeometry(0.22, 0),
                 new THREE.MeshBasicMaterial({ color: 0x67e8f9 }));
-            c.position.set(p[0], 1.3, p[1]);
+            c.position.set(p[0], 1.0, p[1]);
             scene.add(c);
             const rec = { mesh: c, taken: false };
             grottoCrystals.push(rec);
@@ -2420,10 +2467,10 @@
             new THREE.MeshBasicMaterial({ color: 0xfbbf24 }));
         boatLamp.position.set(0, 3.4, -0.3);
         boatGroup.add(boatLamp);
-        boatGroup.position.set(0, 0.15, 28.5);
+        boatGroup.position.set(0, 0.15, 42);
         scene.add(boatGroup);
         let inBoat = false;
-        const boatState = { x: 0, z: 28.5, heading: 0, speed: 0 };
+        const boatState = { x: 0, z: 42, heading: 0, speed: 0 };
         const boatBoardTarget = {
             type: 'boat_board',
             position: boatGroup.position, // referensi hidup: ikut perahu bergerak
@@ -2435,28 +2482,79 @@
         interactables.push(boatBoardTarget);
         const boatStopHome = {
             type: 'boat_stop_home',
-            position: new THREE.Vector3(0, 1.0, 26),
+            position: new THREE.Vector3(0, 1.0, 40),
             radius: 5, icon: '⚓', prompt: 'Turun di Dermaga Pulau (E)', disabled: true
         };
         const boatStopCity = {
             type: 'boat_stop_city',
-            position: new THREE.Vector3(0, 1.0, 54),
+            position: new THREE.Vector3(0, 1.0, 59),
             radius: 5, icon: '⚓', prompt: 'Turun di Kota (E)', disabled: true
         };
         interactables.push(boatStopHome, boatStopCity);
         // --- Warga kota (ikut sistem NPC: bob, label, obrolan) ---
         (function () {
             const mesh = createCharacterMesh(0xf472b6, 0xfbbf24);
-            mesh.position.set(4.5, 1.0, 71);
+            mesh.position.set(4.5, 1.0, 88);
             mesh.rotation.y = 3.1;
             scene.add(mesh);
             const ui = createLabelUI('Rani_Kota', 'bg-pink-400');
             npcObjects.push({
-                name: 'Rani_Kota', color: 0xf472b6, hat: 0xfbbf24, x: 4.5, z: 71, rot: 3.1,
+                name: 'Rani_Kota', color: 0xf472b6, hat: 0xfbbf24, x: 4.5, z: 88, rot: 3.1,
                 chats: ['Selamat datang di Kota NgomonginAI! 🏙️', 'Naik perahu dari dermaga pulau, cuma sebentar kok ⛵', 'Peti harta di plaza cuma bisa dibuka sekali, jangan sampai kelewatan!'],
                 mesh: mesh, ui: ui, bubbleTimer: null
             });
         })();
+
+        // --- Pasar Kota: 2 lapak (ikan & sayur) di jalan dermaga-plaza ---
+        [[-3.5, 72, 0x38bdf8, 'ikan'], [3.5, 72, 0x22c55e, 'sayur']].forEach(function (s) {
+            const table = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.8, 1.2),
+                new THREE.MeshLambertMaterial({ color: 0x92400e }));
+            table.position.set(s[0], 1.4, s[1]); scene.add(table);
+            const roof = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.15, 1.8),
+                new THREE.MeshLambertMaterial({ color: s[2] }));
+            roof.position.set(s[0], 3.1, s[1]); scene.add(roof);
+            [[-1, -0.6], [1, -0.6], [-1, 0.6], [1, 0.6]].forEach(function (o) {
+                const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.8, 6),
+                    new THREE.MeshLambertMaterial({ color: 0x78350f }));
+                pole.position.set(s[0] + o[0], 2.2, s[1] + o[1]); scene.add(pole);
+            });
+            for (let i = 0; i < 3; i++) {
+                const good = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.25, 0.3),
+                    new THREE.MeshLambertMaterial({ color: s[3] === 'ikan' ? 0x38bdf8 : 0x22c55e }));
+                good.position.set(s[0] - 0.6 + i * 0.6, 1.92, s[1]); scene.add(good);
+            }
+        });
+        interactables.push({ type: 'market', position: new THREE.Vector3(0, 1.0, 72), radius: 5, icon: '🛒', prompt: 'Pasar Kota (E)' });
+        interactables.push({ type: 'fishing_city', position: new THREE.Vector3(0, 1.0, 57), radius: 3.5, icon: '🎣', prompt: 'Mancing di Dermaga Kota (E)' });
+
+        // --- Kebun sayur dekat plaza (3 petak, panen 3 menit) ---
+        const gardenPlots = [];
+        const GARDEN_TIME = 180000; // 3 menit dari tanam ke panen
+        [[6, 6], [9, 4], [5, 9]].forEach(function (p, idx) {
+            const soil = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.25, 1.6),
+                new THREE.MeshLambertMaterial({ color: 0x78350f }));
+            soil.position.set(p[0], 1.12, p[1]); scene.add(soil);
+            const sproutMat = new THREE.MeshLambertMaterial({ color: 0x86efac });
+            const sprout = new THREE.Group();
+            sprout.position.set(p[0], 0, p[1]);
+            [[-0.35, 0], [0.35, 0.1], [0, -0.35]].forEach(function (o) {
+                const s = new THREE.Mesh(new THREE.SphereGeometry(0.22, 8, 8), sproutMat);
+                s.position.set(o[0], 1.45, o[1]); sprout.add(s);
+            });
+            sprout.visible = false; scene.add(sprout);
+            gardenPlots.push({ x: p[0], z: p[1], sprout: sprout, sproutMat: sproutMat });
+            interactables.push({ type: 'garden', position: new THREE.Vector3(p[0], 1.0, p[1]), radius: 2.5, icon: '🌱', prompt: 'Tanam / Panen Sayur (E)', plotIndex: idx });
+        });
+        updateGardenVisuals();
+
+        // --- Kerang yang bisa diambil di pantai (tumbuh lagi 60 detik) ---
+        [[-10, 28.5], [10, 29], [20, 22]].forEach(function (p) {
+            const sh = new THREE.Mesh(new THREE.SphereGeometry(0.3, 8, 6),
+                new THREE.MeshLambertMaterial({ color: 0xfbcfe8, flatShading: true }));
+            sh.position.set(p[0], 0.8, p[1]); sh.scale.set(1, 0.5, 0.8); scene.add(sh);
+            const rec = { mesh: sh, taken: false };
+            interactables.push({ type: 'shell', position: new THREE.Vector3(p[0], 1.0, p[1]), radius: 2.5, icon: '🐚', prompt: 'Ambil Kerang (E)', shell: rec });
+        });
 
         // ---- Sistem perahu: fisika gas/rem, oleng ombak, tabrakan pulau ----
         function boardBoat() {
@@ -2474,11 +2572,11 @@
             boatStopHome.disabled = true;
             boatStopCity.disabled = true;
             if (where === 'city') {
-                playerMesh.position.set(0, 1.0, 57);
+                playerMesh.position.set(0, 1.0, 63);
                 playerMesh.rotation.y = Math.PI;
                 showToast('🏙️', 'Sampai di Kota NgomonginAI!');
             } else {
-                playerMesh.position.set(0, 1.0, 24);
+                playerMesh.position.set(0, 1.0, 38);
                 playerMesh.rotation.y = 0;
                 showToast('🏝️', 'Kembali ke pulau!');
             }
@@ -2501,12 +2599,10 @@
             const nz = boatState.z + Math.cos(boatState.heading) * boatState.speed;
             const dHome = Math.hypot(nx, nz);
             const dCity = Math.hypot(nx - CITY.x, nz - CITY.z);
-            const dIslet = Math.hypot(nx - 14, nz - 42);
-            // Zona turun ada di air terbuka (tidak perlu masuk lingkaran pulau);
-            // koridor kota hanya selebar papan dermaga (haluan bersandar, bukan menembus tanah)
-            const corridorCity = Math.abs(nx) < 2.6 && nz > 51.5 && nz < 54;
-            const blocked = (dHome < 22.8) ||
-                (dCity < 15 && !corridorCity) ||
+            const dIslet = Math.hypot(nx - 16, nz - 52);
+            // Zona turun kedua kota ada di air terbuka, jadi tidak perlu koridor
+            const blocked = (dHome < 33.5) ||
+                (dCity < 20) ||
                 dIslet < 4.5 || dHome > 88;
             if (!blocked) { boatState.x = nx; boatState.z = nz; }
             else boatState.speed = 0;
@@ -2543,6 +2639,142 @@
             showToast('💎', 'Dapat +1💎!');
             updateHUD();
             setTimeout(function () { rec.taken = false; rec.mesh.visible = true; }, 30000);
+        }
+
+        // ---- Pasar, kebun & kerang ----
+        const MARKET_SELL = [
+            { key: 'fish', icon: '🐟', name: 'Ikan', price: 10 },
+            { key: 'crab', icon: '🦀', name: 'Kepiting', price: 15 },
+            { key: 'coconut', icon: '🥥', name: 'Kelapa', price: 5 },
+            { key: 'shell', icon: '🐚', name: 'Kerang', price: 4 },
+            { key: 'sayur', icon: '🥬', name: 'Sayur', price: 6 }
+        ];
+        const MARKET_BUY = [
+            { key: 'sayur', icon: '🥬', name: 'Sayur Segar', price: 8, desc: 'Makan (+25⚡) atau tanam di kebun' },
+            { key: 'eskelapa', icon: '🍹', name: 'Es Kelapa', price: 15, desc: 'Minuman segar (+50⚡)' }
+        ];
+        const MARKET_EAT = { sayur: 25, eskelapa: 50 };
+        function marketRow(icon, name, sub, btnHtml) {
+            return '<div class="bg-slate-900/60 border border-slate-700/50 rounded-2xl p-3 flex items-center gap-3">' +
+                '<span class="text-2xl">' + icon + '</span>' +
+                '<div class="flex-1"><div class="text-sm font-bold text-slate-100">' + name + '</div>' +
+                '<div class="text-[11px] text-slate-400 mt-0.5">' + sub + '</div></div>' + btnHtml + '</div>';
+        }
+        function marketBtn(attr, id, ok, label) {
+            return '<button data-' + attr + '="' + id + '" ' + (ok ? '' : 'disabled') +
+                ' class="text-xs font-extrabold px-4 py-2 rounded-xl transition ' +
+                (ok ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950' : 'bg-slate-700 text-slate-500 cursor-not-allowed') + '">' + label + '</button>';
+        }
+        function renderMarket() {
+            document.getElementById('market-coins').textContent = playerState.inventory.coin;
+            const sellBox = document.getElementById('market-sell');
+            sellBox.innerHTML = MARKET_SELL.map(function (it) {
+                const owned = playerState.inventory[it.key] || 0;
+                return marketRow(it.icon, it.name, 'Punya: ' + owned + ' • Harga jual: ' + it.price + '🪙',
+                    marketBtn('sell', it.key, owned > 0, 'Jual'));
+            }).join('');
+            const buyBox = document.getElementById('market-buy');
+            buyBox.innerHTML = MARKET_BUY.map(function (it) {
+                return marketRow(it.icon, it.name, it.desc + ' • Harga: ' + it.price + '🪙',
+                    marketBtn('buy-m', it.key, playerState.inventory.coin >= it.price, 'Beli'));
+            }).join('');
+            const eatBox = document.getElementById('market-eat');
+            const eatRows = Object.keys(MARKET_EAT).filter(function (k) { return (playerState.inventory[k] || 0) > 0; })
+                .map(function (k) {
+                    const icon = k === 'sayur' ? '🥬' : '🍹';
+                    const name = k === 'sayur' ? 'Sayur Segar' : 'Es Kelapa';
+                    return marketRow(icon, name, 'Punya: ' + playerState.inventory[k] + ' • Pulihkan +' + MARKET_EAT[k] + '⚡',
+                        marketBtn('eat-m', k, true, 'Makan'));
+                }).join('');
+            eatBox.innerHTML = eatRows || '<div class="text-[11px] text-slate-500 px-1">Belum punya makanan. Beli dulu di atas 👆</div>';
+            sellBox.querySelectorAll('[data-sell]').forEach(function (b) {
+                b.addEventListener('click', function () { sellMarket(b.getAttribute('data-sell')); });
+            });
+            buyBox.querySelectorAll('[data-buy-m]').forEach(function (b) {
+                b.addEventListener('click', function () { buyMarket(b.getAttribute('data-buy-m')); });
+            });
+            eatBox.querySelectorAll('[data-eat-m]').forEach(function (b) {
+                b.addEventListener('click', function () { eatMarket(b.getAttribute('data-eat-m')); });
+            });
+        }
+        function sellMarket(key) {
+            const it = MARKET_SELL.find(function (x) { return x.key === key; });
+            if (!it || (playerState.inventory[key] || 0) <= 0) return;
+            playerState.inventory[key] -= 1;
+            playerState.inventory.coin += it.price;
+            playSFX('success');
+            showToast('🛒', 'Jual ' + it.name + ' +' + it.price + '🪙!');
+            updateHUD(); renderMarket(); saveGame(true);
+        }
+        function buyMarket(key) {
+            const it = MARKET_BUY.find(function (x) { return x.key === key; });
+            if (!it || playerState.inventory.coin < it.price) { showToast('🛒', 'Koin tidak cukup!'); return; }
+            playerState.inventory.coin -= it.price;
+            playerState.inventory[key] = (playerState.inventory[key] || 0) + 1;
+            playSFX('success');
+            showToast('🛒', 'Beli ' + it.name + '!');
+            updateHUD(); renderMarket(); saveGame(true);
+        }
+        function eatMarket(key) {
+            if ((playerState.inventory[key] || 0) <= 0) return;
+            playerState.inventory[key] -= 1;
+            playerState.energy = Math.min(100, playerState.energy + MARKET_EAT[key]);
+            playSFX('success');
+            showToast('🍽️', 'Makan! +' + MARKET_EAT[key] + '⚡');
+            updateHUD(); renderMarket(); saveGame(true);
+        }
+        function gardenState(i) {
+            const g = playerState.garden[i];
+            if (!g) return 'empty';
+            return (Date.now() - g.plantedAt >= GARDEN_TIME) ? 'ready' : 'growing';
+        }
+        function updateGardenVisuals() {
+            gardenPlots.forEach(function (p, i) {
+                const st = gardenState(i);
+                p.sprout.visible = st !== 'empty';
+                if (st === 'growing') {
+                    const k = (Date.now() - playerState.garden[i].plantedAt) / GARDEN_TIME;
+                    p.sprout.scale.setScalar(0.3 + k * 0.5);
+                    p.sproutMat.color.setHex(0x86efac);
+                } else if (st === 'ready') {
+                    p.sprout.scale.setScalar(1);
+                    p.sproutMat.color.setHex(0x16a34a);
+                }
+            });
+        }
+        setInterval(updateGardenVisuals, 5000);
+        function plantOrHarvestGarden(item) {
+            const i = item.plotIndex;
+            const st = gardenState(i);
+            if (st === 'ready') {
+                playerState.garden[i] = null;
+                playerState.inventory.sayur += 3;
+                addSkillXP('foraging', 20);
+                showToast('🌱', 'Panen! +3🥬');
+                updateHUD(); updateGardenVisuals(); saveGame(true);
+            } else if (st === 'growing') {
+                const left = Math.max(1, Math.ceil((GARDEN_TIME - (Date.now() - playerState.garden[i].plantedAt)) / 60000));
+                showToast('⏳', 'Masih tumbuh... panen dalam ~' + left + ' menit');
+            } else {
+                if ((playerState.inventory.sayur || 0) <= 0) {
+                    showToast('🌱', 'Butuh 1🥬 untuk menanam (beli di Pasar Kota)');
+                    return;
+                }
+                playerState.inventory.sayur -= 1;
+                playerState.garden[i] = { plantedAt: Date.now() };
+                showToast('🌱', 'Sayur ditanam! Panen dalam 3 menit');
+                updateHUD(); updateGardenVisuals(); saveGame(true);
+            }
+        }
+        function pickShell(item) {
+            const rec = item.shell;
+            if (rec.taken) return;
+            rec.taken = true;
+            rec.mesh.visible = false;
+            playerState.inventory.shell += 1;
+            showToast('🐚', 'Dapat +1 kerang! (jual di Pasar Kota)');
+            updateHUD();
+            setTimeout(function () { rec.taken = false; rec.mesh.visible = true; }, 60000);
         }
 
         function showCharacterBubble(uiObj, text) {
@@ -2788,7 +3020,7 @@
         function worldIsNight() { const t = WORLD.time % 24; return t < 5 || t >= 19; }
 
         function updateDayNight(dt) {
-            WORLD.time = (WORLD.time + dt / 10) % 24; // 10 detik real = 1 jam game
+            WORLD.time = (WORLD.time + dt / 20) % 24; // 20 detik real = 1 jam game (1 hari = 8 menit)
             const df = worldDayFactor();
             const t = WORLD.time % 24;
             const sunA = ((t - 6) / 12) * Math.PI;
@@ -2860,7 +3092,7 @@
             // Modal terbuka = fokus ke modal, tombol game diabaikan (Esc menutup)
             if (anyModalOpen()) {
                 if (e.key === 'Escape') {
-                    ['github-modal', 'recipe-modal', 'mission-modal', 'shop-modal'].forEach(closeModal);
+                    ['github-modal', 'recipe-modal', 'mission-modal', 'shop-modal', 'market-modal'].forEach(closeModal);
                 }
                 return;
             }
@@ -3115,6 +3347,9 @@
             if (activeTarget.type === 'boat_stop_city') { disembarkBoat('city'); return; }
             if (activeTarget.type === 'chest') { openCityChest(); return; }
             if (activeTarget.type === 'grotto_crystal') { pickGrottoCrystal(activeTarget); return; }
+            if (activeTarget.type === 'market') { renderMarket(); openModal('market-modal'); return; }
+            if (activeTarget.type === 'garden') { plantOrHarvestGarden(activeTarget); return; }
+            if (activeTarget.type === 'shell') { pickShell(activeTarget); return; }
 
             if (activeTarget.type === 'tent') {
                 toggleEnterTent();
@@ -3125,12 +3360,12 @@
                 if (!useEnergy(8)) return;
                 fishingGame.gold = false;
                 setActivity('fishing_wait');
-                playerMesh.lookAt(0, playerMesh.position.y, 32);
+                playerMesh.lookAt(0, playerMesh.position.y, 45);
                 playerMesh.userData.rod.visible = true;
                 playerMesh.userData.rightArmPivot.rotation.x = -Math.PI / 3;
 
                 // Tampilkan pelampung kail di air
-                bobberMesh.position.set(0, -0.15, 29.5);
+                bobberMesh.position.set(0, -0.15, 42.5);
                 bobberMesh.visible = true;
                 fishingLine.visible = true;
 
@@ -3344,14 +3579,32 @@
                 saveGame(true);
             }
 
+            else if (activeTarget.type === 'fishing_city') {
+                if (!useEnergy(8)) return;
+                fishingGame.gold = false;
+                setActivity('fishing_wait');
+                playerMesh.lookAt(0, playerMesh.position.y, 40);
+                playerMesh.userData.rod.visible = true;
+                playerMesh.userData.rightArmPivot.rotation.x = -Math.PI / 3;
+                bobberMesh.position.set(0, -0.15, 52);
+                bobberMesh.visible = true;
+                fishingLine.visible = true;
+                playSFX('splash');
+                showCharacterBubble(playerLabel, '🎣 Mancing di dermaga kota...');
+                showToast('🎣', 'Tunggu ikan menyambar!');
+                const waitMs = (1500 + Math.random() * 1300) * (WORLD.weather === 'hujan' ? 0.6 : 1);
+                fishingGame.waitTimer = setTimeout(function () {
+                    if (currentActivity === 'fishing_wait') startFishingMinigame();
+                }, waitMs);
+            }
             else if (activeTarget.type === 'fishing_gold') {
                 if (!useEnergy(8)) return;
                 fishingGame.gold = true;
                 setActivity('fishing_wait');
-                playerMesh.lookAt(-10, playerMesh.position.y, 32);
+                playerMesh.lookAt(-10, playerMesh.position.y, 45);
                 playerMesh.userData.rod.visible = true;
                 playerMesh.userData.rightArmPivot.rotation.x = -Math.PI / 3;
-                bobberMesh.position.set(-10, -0.15, 29.5);
+                bobberMesh.position.set(-10, -0.15, 40.5);
                 bobberMesh.visible = true;
                 fishingLine.visible = true;
                 playSFX('splash');
@@ -3776,7 +4029,7 @@
                     // Fisika pasir: jalan di pasir lebih lambat (gesekan tinggi)
                     const curDist = Math.hypot(playerMesh.position.x, playerMesh.position.z);
                     const curCity = Math.hypot(playerMesh.position.x - CITY.x, playerMesh.position.z - CITY.z);
-                    const onSand = (curDist >= 19 && curDist < 22.8) || (curCity >= 12.5 && curCity < 15);
+                    const onSand = (curDist >= 28 && curDist < 32.5) || (curCity >= 17.5 && curCity < 20);
                     const moveSpeed = 0.14 * (onSand ? 0.7 : 1);
                     const moveAngle = Math.atan2(moveSide, moveForward) + cameraAngle;
                     const nextX = playerMesh.position.x + Math.sin(moveAngle) * moveSpeed;
@@ -3795,14 +4048,14 @@
                     }
 
                     const distCenter = Math.hypot(nextX, nextZ);
-                    const onDock = Math.abs(nextX) < 1.5 && nextZ >= 18 && nextZ <= 26.5;
+                    const onDock = Math.abs(nextX) < 1.5 && nextZ >= 31 && nextZ <= 40.5;
                     const inMine = typeof MINE !== 'undefined' &&
                         Math.hypot(nextX - MINE.x, nextZ - MINE.z) < MINE.r;
                     const distCity = Math.hypot(nextX - CITY.x, nextZ - CITY.z);
-                    const inCity = distCity < 14.5;
-                    const onCityDock = Math.abs(nextX) < 1.5 && nextZ >= 48 && nextZ <= 58;
+                    const inCity = distCity < 19.5;
+                    const onCityDock = Math.abs(nextX) < 1.5 && nextZ >= 55 && nextZ <= 65;
 
-                    if (!blockedByTree && (distCenter < 22.8 || onDock || inMine || inCity || onCityDock)) {
+                    if (!blockedByTree && (distCenter < 32.5 || onDock || inMine || inCity || onCityDock)) {
                         playerMesh.position.x = nextX;
                         playerMesh.position.z = nextZ;
                     }
@@ -3994,6 +4247,7 @@
         window.onload = function () {
             const restored = loadGame();
             updateHUD();
+            updateGardenVisuals();
             animate();
             if (restored) showToast('💾', 'Progres terakhir berhasil dimuat!');
         };
