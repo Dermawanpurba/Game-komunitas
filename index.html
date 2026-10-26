@@ -2336,17 +2336,23 @@
             if (!g) return 'empty';
             return (Date.now() - g.plantedAt >= GARDEN_TIME) ? 'ready' : 'growing';
         }
-        function updateGardenVisuals() {
+        function updateGardenVisuals(elapsedSec) {
+            const swayT = (typeof elapsedSec === 'number') ? elapsedSec : (Date.now() / 1000);
             gardenPlots.forEach(function (p, i) {
                 const st = gardenState(i);
                 p.sprout.visible = st !== 'empty';
                 const veg = st === 'empty' ? VEG_TYPES[0] : vegById(playerState.garden[i].veg);
+                const sway = Math.sin(swayT * 2 + i * 1.7);
                 if (st === 'growing') {
-                    const k = (Date.now() - playerState.garden[i].plantedAt) / GARDEN_TIME;
-                    p.sprout.scale.setScalar(0.3 + k * 0.5);
-                    p.sproutMat.color.setHex(veg.light);
+                    const k = Math.min(1, (Date.now() - playerState.garden[i].plantedAt) / GARDEN_TIME);
+                    p.sprout.scale.setScalar(0.25 + k * 0.75); // kecambah membesar pelan-pelan selama 3 menit
+                    p.sprout.rotation.z = sway * 0.08 * (0.3 + k); // bergoyang kena angin, makin kentara saat membesar
+                    p.sprout.position.x = p.x + sway * 0.05 * (0.3 + k);
+                    p.sproutMat.color.setHex(veg.light).lerp(new THREE.Color(veg.color), k); // hijau muda -> warna panen
                 } else if (st === 'ready') {
                     p.sprout.scale.setScalar(1);
+                    p.sprout.rotation.z = sway * 0.08;
+                    p.sprout.position.x = p.x + sway * 0.05;
                     p.sproutMat.color.setHex(veg.color);
                 }
             });
@@ -2573,16 +2579,20 @@
                 isInsideTent = true;
                 setActivity('camping');
                 // Pindahkan karakter masuk ke tengah tenda dan buat dinding tenda semi-transparan agar terlihat nyaman di dalam
-                playerMesh.position.set(playerTentMesh.position.x, 1.0, playerTentMesh.position.z);
+                playerMesh.position.set(playerTentMesh.position.x - 1.1, 0.85, playerTentMesh.position.z + 0.9);
                 playerMesh.rotation.y = 0;
+                playerMesh.rotation.x = -1.5; // berbaring di kasur: kepala di bantal, kaki di ujung kasur
+                playerMesh.rotation.z = 0;
                 playerTentMesh.userData.tentWall.material.opacity = 0.38;
                 tentOverlay.classList.remove('hidden');
-                showCharacterBubble(playerLabel, '😌 Rebahan santai di dalam kemah...');
-                showToast('⛺', 'Kamu masuk ke dalam tenda kemah.');
+                showCharacterBubble(playerLabel, '😴 Berbaring di kasur... Zzz');
+                showToast('⛺', 'Berbaring di kasur 😴 — E untuk masak.');
             } else {
                 isInsideTent = false;
                 clearActivity();
                 playerMesh.position.set(playerTentMesh.position.x, 1.0, playerTentMesh.position.z + 4.2);
+                playerMesh.rotation.x = 0; // kembali tegak
+                playerMesh.rotation.z = 0;
                 playerTentMesh.userData.tentWall.material.opacity = 1.0;
                 tentOverlay.classList.add('hidden');
                 showCharacterBubble(playerLabel, 'Segar kembali habis istirahat di tenda! ✨');
@@ -2676,6 +2686,7 @@
         let currentActivity = null; // 'fishing_wait' | 'fishing_minigame' | 'climbing' | 'cooking' | 'dancing' | 'camping'
         let activeTarget = null;
         let lastTentXPTick = 0; // pencatat XP skill Kemah
+        let lastTentZzz = 0;
 
         // ===== TAHAP 4: DUNIA HIDUP (siang/malam + cuaca) =====
         const WORLD = {
@@ -2798,7 +2809,8 @@
             }
             if (k === 'e') {
                 if (isInsideTent) {
-                    toggleEnterTent();
+                    if (activeTarget && activeTarget.type === 'campfire') triggerInteraction(); // E di dalam = masak
+                    else toggleEnterTent();
                 } else {
                     triggerInteraction();
                 }
@@ -3646,7 +3658,7 @@
                     const onDock = Math.abs(nextX) < 1.5 && nextZ >= 31 && nextZ <= 40.5;
                     const inWater = distCenter >= 32.5 && !onDock;
 
-                    if (!blockedByTree && (distCenter < 55 || onDock)) {
+                    if (!blockedByTree && !isInsideTent && (distCenter < 55 || onDock)) {
                         playerMesh.position.x = nextX;
                         playerMesh.position.z = nextZ;
                         isSwimming = inWater;
@@ -3701,7 +3713,7 @@
                 }
                 // AUDIT: jaring pengaman anti-tenggelam — posisi apa pun yang bikin
                 // karakter di bawah tanah langsung dikembalikan (penyebab "karakter hilang").
-                if (!isSwimming && playerMesh.position.y < 1.0) playerMesh.position.y = 1.0;
+                if (!isSwimming && !isInsideTent && playerMesh.position.y < 1.0) playerMesh.position.y = 1.0;
             }
             // Squash & stretch: mendarat memipih sesaat lalu memantul kembali (fisika kartun)
             (function () {
@@ -3760,6 +3772,21 @@
                 playerMesh.userData.rightArmPivot.rotation.z = 0.3;
                 if (!isSwimming) playerMesh.position.y = 1.0 + Math.abs(Math.sin(ep * 9)) * 0.04;
             } else if (eatProp.visible) { eatProp.visible = false; }
+            updateGardenVisuals(elapsed); // tanaman tumbuh & bergoyang tiap frame
+            // Baring di kasur saat di dalam tenda: badan rebah, kaki-tangan rileks, Zzz berkala
+            if (isInsideTent) {
+                playerMesh.rotation.x = -1.5;
+                playerMesh.rotation.z = 0;
+                playerMesh.position.y = 0.85;
+                playerMesh.userData.leftLegPivot.rotation.x = 0;
+                playerMesh.userData.rightLegPivot.rotation.x = 0;
+                playerMesh.userData.leftArmPivot.rotation.x = 0.2;
+                playerMesh.userData.rightArmPivot.rotation.x = 0.2;
+                if (elapsed - lastTentZzz >= 8) {
+                    lastTentZzz = elapsed;
+                    showCharacterBubble(playerLabel, '💤 Zzz...');
+                }
+            }
             updateSparkle(playerMesh, elapsed);
 
             // 5. Cek Jarak Pemain dengan Objek Interaktif
