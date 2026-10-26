@@ -182,6 +182,9 @@
                 <button id="btn-shop-modal" class="bg-sky-500 hover:bg-sky-400 active:scale-95 text-slate-950 font-bold text-xs px-3 py-2 rounded-xl transition flex items-center gap-1.5 shadow-lg shadow-sky-500/20">
                     <span>🏪</span> <span class="hidden sm:inline">Toko</span>
                 </button>
+                <button id="btn-call-dog" class="bg-orange-400 hover:bg-orange-300 active:scale-95 text-slate-950 font-bold text-xs px-3 py-2 rounded-xl transition flex items-center gap-1.5 shadow-lg shadow-orange-400/20">
+                    <span>🐶</span> <span class="hidden sm:inline">Panggil</span>
+                </button>
                 <button id="btn-mp-modal" class="bg-violet-500 hover:bg-violet-400 active:scale-95 text-white font-bold text-xs px-3 py-2 rounded-xl transition flex items-center gap-1.5 shadow-lg shadow-violet-500/20">
                     <span>🌐</span> <span class="hidden sm:inline">Main Bareng</span>
                 </button>
@@ -230,7 +233,7 @@
                 <div class="text-xs text-slate-300">Beristirahat sambil mendengar suasana pulau...</div>
             </div>
             <button id="btn-exit-tent" class="bg-rose-500 hover:bg-rose-400 text-white font-bold text-xs px-3.5 py-2 rounded-xl transition">
-                Keluar Tenda (E)
+                Keluar Tenda
             </button>
             <button id="btn-dismantle-tent" class="bg-slate-600 hover:bg-slate-500 text-white font-bold text-xs px-3.5 py-2 rounded-xl transition" title="Bongkar tenda & dapat kembali 1 kayu">
                 🗑️ Bongkar
@@ -402,23 +405,23 @@
                 </div>
                 <div>
                     <label class="text-xs text-slate-300 font-bold">Kode room (default komunitas)</label>
-                    <input id="mp-create-code" type="text" maxlength="16" value="ngomonginAI"
+                    <input id="mp-create-code" type="text" maxlength="16" value="miciko"
                         class="mt-1 w-full bg-slate-900/80 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-violet-400" />
                 </div>
                 <button id="btn-mp-create" class="w-full bg-violet-500 hover:bg-violet-400 text-white font-extrabold py-2.5 rounded-2xl transition">
                     🎮 Buat Room Baru
                 </button>
                 <div class="flex gap-2">
-                    <input id="mp-code" type="text" maxlength="16" placeholder="Kode room (mis. ngomonginAI)"
+                    <input id="mp-code" type="text" maxlength="16" placeholder="Kode room (mis. miciko)"
                         class="flex-1 bg-slate-900/80 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white uppercase outline-none focus:border-violet-400" />
                     <button id="btn-mp-join" class="bg-sky-500 hover:bg-sky-400 text-slate-950 font-extrabold px-5 py-2 rounded-xl transition">
                         Gabung
                     </button>
                 </div>
                 <button id="btn-mp-join-default" class="w-full bg-emerald-500 hover:bg-emerald-400 text-white font-extrabold py-2 rounded-2xl transition text-sm">
-                    🏠 Gabung room komunitas 'ngomonginAI'
+                    🏠 Gabung room komunitas 'miciko'
                 </button>
-                <p class="text-[11px] text-slate-500">💡 Butuh internet. Kode default: <b class="text-emerald-300">ngomonginAI</b> — host buat room pakai kode itu, anggota tinggal gabung. Yang pertama buat room otomatis jadi 👑 Room Master.</p>
+                <p class="text-[11px] text-slate-500">💡 Butuh internet. Kode default: <b class="text-emerald-300">miciko</b> — host buat room pakai kode itu, anggota tinggal gabung. Yang pertama buat room otomatis jadi 👑 Room Master.</p>
             </div>
             <div id="mp-room" class="hidden space-y-3">
                 <div class="flex items-center justify-between bg-slate-900/60 rounded-2xl px-4 py-3 border border-violet-400/30">
@@ -790,6 +793,7 @@
             }
             playerState.inventory.dish -= 1;
             playerState.energy = Math.min(100, playerState.energy + 35);
+            eatAnimT0 = Date.now(); eatProp.visible = true;
             playSFX('success');
             showCharacterBubble(playerLabel, 'Nyam nyam! Energi pulih ⚡✨');
             showToast('🍲', 'Makan hidangan: +35 Energi ⚡');
@@ -2045,6 +2049,22 @@
         playerMesh.position.set(0, 1.0, 6);
         scene.add(playerMesh);
         const playerLabel = createLabelUI(playerState.username, 'bg-emerald-400');
+        // Properti makan: mangkuk + 3 suap yang mengecil tiap gigitan
+        const eatProp = new THREE.Group();
+        const eatBowl = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.16, 0.12, 10),
+            new THREE.MeshLambertMaterial({ color: 0xea580c }));
+        eatProp.add(eatBowl);
+        const eatBites = [];
+        for (let bi = 0; bi < 3; bi++) {
+            const bite = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 8),
+                new THREE.MeshLambertMaterial({ color: 0xfacc15 }));
+            bite.position.set(-0.08 + bi * 0.08, 0.09, 0);
+            eatProp.add(bite); eatBites.push(bite);
+        }
+        eatProp.position.set(0.35, 1.6, 0.5);
+        eatProp.visible = false;
+        playerMesh.add(eatProp);
+        let eatAnimT0 = 0;
 
         const playerPhysics = {
             vy: 0,
@@ -2083,43 +2103,120 @@
         const dogNose = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 8),
             new THREE.MeshLambertMaterial({ color: 0x111111 }));
         dogNose.position.set(0, 1.58, 0.95); dogGroup.add(dogNose);
+        const dogEars = [];
         [-0.12, 0.12].forEach(function (ex) {
             const eye = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 8),
                 new THREE.MeshLambertMaterial({ color: 0x111111 }));
             eye.position.set(ex, 1.68, 0.76); dogGroup.add(eye);
             const ear = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.28, 4), dogDark);
-            ear.position.set(ex * 1.5, 1.9, 0.5); ear.rotation.z = ex > 0 ? -0.25 : 0.25; dogGroup.add(ear);
+            ear.position.set(ex * 1.5, 1.9, 0.5); ear.rotation.z = ex > 0 ? -0.25 : 0.25; dogGroup.add(ear); dogEars.push(ear);
         });
         const dogTailPivot = new THREE.Group();
         dogTailPivot.position.set(0, 1.58, -0.5); dogGroup.add(dogTailPivot);
         const dogTail = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.35, 0.08), dogTan);
         dogTail.position.y = 0.17; dogTailPivot.add(dogTail);
+        const dogLegs = [];
         [[-0.28, 0.28], [0.28, 0.28], [-0.28, -0.28], [0.28, -0.28]].forEach(function (lp) {
+            const pivot = new THREE.Group();
+            pivot.position.set(lp[0], 1.35, lp[1]);
             const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.35, 6), dogDark);
-            leg.position.set(lp[0], 1.17, lp[1]); dogGroup.add(leg);
+            leg.position.y = -0.175; pivot.add(leg);
+            dogGroup.add(pivot); dogLegs.push(pivot);
         });
         dogGroup.position.set(2.5, 1.0, 5.5);
         scene.add(dogGroup);
-        const dogLabel = createLabelUI('🐶 Brownie', 'bg-amber-400');
-        interactables.push({ type: 'dog', position: dogGroup.position, radius: 3, icon: '🐶', prompt: 'Elus Brownie (E)' });
-        function updateDog(dt, elapsed) {
-            const dx = playerMesh.position.x - dogGroup.position.x;
-            const dz = playerMesh.position.z - dogGroup.position.z;
-            const dist = Math.hypot(dx, dz);
-            const happy = Date.now() < dogHappyUntil;
-            if (dist > 15) {
-                dogGroup.position.x = playerMesh.position.x + 2.0;
-                dogGroup.position.z = playerMesh.position.z + 2.0;
-            } else if (dist > 2.2) {
-                const sp = 3.5 * dt;
-                dogGroup.position.x += (dx / dist) * sp;
-                dogGroup.position.z += (dz / dist) * sp;
-                dogGroup.position.y = 1.0 + Math.abs(Math.sin(elapsed * 12)) * 0.06;
-                dogGroup.rotation.y = Math.atan2(dx, dz);
-            } else {
-                dogGroup.position.y = 1.0;
-                dogGroup.rotation.y = Math.atan2(dx, dz);
+        const dogLabel = createLabelUI('🐶 Miciko', 'bg-amber-400');
+        interactables.push({ type: 'dog', position: dogGroup.position, radius: 3, icon: '🐶', prompt: 'Elus Miciko (E)' });
+        let dogMode = 'free';
+        let dogFollowUntil = 0;
+        let dogWanderTarget = null;
+        let dogIdleUntil = 0;
+        let dogWalkPhase = 0;
+        let dogJumpUntil = 0;
+        function dogGroundY(x, z) {
+            if (Math.abs(x) < 1.5 && z >= 31 && z <= 40.5) return 1.0;
+            return Math.hypot(x, z) < 28 ? 1.0 : 0.7;
+        }
+        function pickDogWanderTarget() {
+            for (let t = 0; t < 4; t++) {
+                const ang = Math.random() * Math.PI * 2;
+                const rad = 5 + Math.random() * 21;
+                const tx = Math.cos(ang) * rad, tz = Math.sin(ang) * rad;
+                if (tx > 3 && tx < 12 && tz > 3 && tz < 12) continue; // jangan injak kebun
+                return { x: tx, z: tz };
             }
+            return { x: 0, z: 10 };
+        }
+        function callDog() {
+            dogMode = 'called';
+            dogFollowUntil = Date.now() + 60000;
+            showCharacterBubble(dogLabel, '🐶 Guk! Aku datang!');
+            showToast('🐶', 'Miciko dipanggil! Dia berlari ke arahmu!');
+        }
+        function updateDog(dt, elapsed) {
+            const now = Date.now();
+            const happy = now < dogHappyUntil;
+            let moving = false;
+            let speed = 0;
+            let tx = dogGroup.position.x, tz = dogGroup.position.z;
+            if (dogMode === 'called') {
+                if (now > dogFollowUntil) {
+                    dogMode = 'free'; dogWanderTarget = null;
+                    showToast('🐶', 'Miciko kembali bermain bebas.');
+                } else {
+                    if (isInsideTent && playerTentMesh) {
+                        tx = playerTentMesh.position.x; tz = playerTentMesh.position.z + 2.2;
+                    } else {
+                        tx = playerMesh.position.x; tz = playerMesh.position.z;
+                        const pd = Math.hypot(tx, tz);
+                        if (pd > 32.5) { tx = tx / pd * 31.5; tz = tz / pd * 31.5; } // tunggu di pantai, jangan berenang
+                    }
+                    const dist = Math.hypot(tx - dogGroup.position.x, tz - dogGroup.position.z);
+                    if (dist > 15) {
+                        if (isInsideTent && playerTentMesh) { dogGroup.position.x = tx; dogGroup.position.z = tz; }
+                        else if (Math.hypot(playerMesh.position.x, playerMesh.position.z) > 32.5) { dogGroup.position.x = tx; dogGroup.position.z = tz; }
+                        else { dogGroup.position.x = playerMesh.position.x + 1.5; dogGroup.position.z = playerMesh.position.z + 1.5; }
+                    } else if (dist > 2.2) { moving = true; speed = 3.5; }
+                }
+            }
+            if (dogMode === 'free') {
+                if (now < dogIdleUntil) { moving = false; }
+                else {
+                    if (!dogWanderTarget) dogWanderTarget = pickDogWanderTarget();
+                    const dist = Math.hypot(dogWanderTarget.x - dogGroup.position.x, dogWanderTarget.z - dogGroup.position.z);
+                    if (dist < 1) {
+                        dogWanderTarget = null;
+                        dogIdleUntil = now + 2000 + Math.random() * 3000; // berhenti, mengendus-endus
+                    } else { tx = dogWanderTarget.x; tz = dogWanderTarget.z; moving = true; speed = 2.2; }
+                }
+            }
+            if (moving) {
+                const dx = tx - dogGroup.position.x, dz = tz - dogGroup.position.z;
+                const dist = Math.hypot(dx, dz) || 1;
+                dogGroup.position.x += (dx / dist) * speed * dt;
+                dogGroup.position.z += (dz / dist) * speed * dt;
+                dogGroup.rotation.y = Math.atan2(dx, dz);
+                dogWalkPhase += dt * 11;
+            } else {
+                dogGroup.rotation.y = Math.atan2(playerMesh.position.x - dogGroup.position.x, playerMesh.position.z - dogGroup.position.z);
+            }
+            // Fisika jalan: kaki mengayun diagonal, badan & kepala membal, telinga terayun
+            const swing = moving ? Math.sin(dogWalkPhase) * 0.7 : 0;
+            dogLegs[0].rotation.x = swing; dogLegs[3].rotation.x = swing;
+            dogLegs[1].rotation.x = -swing; dogLegs[2].rotation.x = -swing;
+            const bob = moving ? Math.abs(Math.sin(dogWalkPhase)) * 0.05 : 0;
+            const gy = dogGroundY(dogGroup.position.x, dogGroup.position.z);
+            let jumpY = 0;
+            if (now < dogJumpUntil) {
+                const p = 1 - (dogJumpUntil - now) / 700;
+                jumpY = Math.sin(p * Math.PI) * 0.6;
+                dogGroup.scale.set(1.05, 0.95, 1.05);
+            } else if (dogGroup.scale.y !== 1) { dogGroup.scale.set(1, 1, 1); }
+            dogGroup.position.y = gy + bob + jumpY;
+            dogHead.position.y = 1.62 + (moving ? Math.sin(dogWalkPhase * 2) * 0.02 : 0);
+            dogEars.forEach(function (ear, ei) {
+                ear.rotation.z = (ei === 0 ? 0.25 : -0.25) + (moving ? Math.sin(dogWalkPhase + ei * 2) * 0.15 : 0);
+            });
             dogTailPivot.rotation.x = Math.sin(elapsed * (happy ? 18 : 8)) * 0.45;
         }
 
@@ -2151,6 +2248,16 @@
         umbTop.position.set(-5, 2.8, 29.5);
         umbTop.castShadow = true;
         scene.add(umbTop);
+        // --- Jenis sayur: kebun & sayur liar tidak lagi 1 macam ---
+        const VEG_TYPES = [
+            { id: 'kangkung', name: 'Kangkung', color: 0x16a34a, light: 0x86efac },
+            { id: 'bayam', name: 'Bayam', color: 0x15803d, light: 0x4ade80 },
+            { id: 'wortel', name: 'Wortel', color: 0xea580c, light: 0xfdba74 },
+            { id: 'kubis', name: 'Kubis', color: 0x9333ea, light: 0xd8b4fe },
+            { id: 'tomat', name: 'Tomat', color: 0xdc2626, light: 0xfca5a5 }
+        ];
+        function vegById(id) { return VEG_TYPES.find(function (v) { return v.id === id; }) || VEG_TYPES[0]; }
+
         // --- Kebun sayur dekat plaza (6 petak, panen 3 menit) ---
         const gardenPlots = [];
         const GARDEN_TIME = 180000; // 3 menit dari tanam ke panen
@@ -2189,21 +2296,39 @@
             interactables.push({ type: 'shell', position: new THREE.Vector3(p[0], 1.0, p[1]), radius: 2.5, icon: '🐚', prompt: 'Ambil Kerang (E)', shell: rec });
         });
 
-        // --- Sayur liar: tumbuh sendiri di pulau, petik untuk bibit kebun (tumbuh lagi 90 detik) ---
-        [[-8, 12], [14, 2], [-14, -12], [12, -14], [-6, -18]].forEach(function (p) {
+        // --- Sayur liar 5 macam: tumbuh sendiri di pulau (tumbuh lagi 90 detik) ---
+        [[-8, 12], [14, 2], [-14, -12], [12, -14], [-6, -18]].forEach(function (p, wi) {
+            const veg = VEG_TYPES[wi % VEG_TYPES.length];
             const wild = new THREE.Group();
             wild.position.set(p[0], 1.0, p[1]);
             const mound = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.7, 0.25, 8),
                 new THREE.MeshLambertMaterial({ color: 0x6b3410 }));
             mound.position.y = 0.12; wild.add(mound);
-            [[0, 0.45, 0, 0x16a34a], [-0.3, 0.4, 0.15, 0x4ade80], [0.3, 0.42, -0.15, 0x22c55e], [0.05, 0.55, 0.2, 0x86efac]].forEach(function (o) {
+            [[0, 0.45, 0], [-0.3, 0.4, 0.15], [0.3, 0.42, -0.15], [0.05, 0.55, 0.2]].forEach(function (o) {
                 const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.28, 8, 8),
-                    new THREE.MeshLambertMaterial({ color: o[3], flatShading: true }));
+                    new THREE.MeshLambertMaterial({ color: veg.color, flatShading: true }));
                 leaf.position.set(o[0], o[1], o[2]); leaf.scale.set(1, 0.7, 1); wild.add(leaf);
             });
+            if (veg.id === 'wortel') {
+                [[-0.2, 0.3, 0.1], [0.2, 0.3, -0.1]].forEach(function (o) {
+                    const car = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.3, 6),
+                        new THREE.MeshLambertMaterial({ color: 0xea580c }));
+                    car.position.set(o[0], o[1], o[2]); car.rotation.x = Math.PI; wild.add(car);
+                });
+            } else if (veg.id === 'tomat') {
+                [[-0.2, 0.5, 0.2], [0.25, 0.48, 0.1]].forEach(function (o) {
+                    const tom = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 8),
+                        new THREE.MeshLambertMaterial({ color: 0xdc2626 }));
+                    tom.position.set(o[0], o[1], o[2]); wild.add(tom);
+                });
+            } else if (veg.id === 'kubis') {
+                const cab = new THREE.Mesh(new THREE.SphereGeometry(0.34, 8, 8),
+                    new THREE.MeshLambertMaterial({ color: 0x9333ea, flatShading: true }));
+                cab.position.set(0, 0.5, 0); cab.scale.set(1, 0.75, 1); wild.add(cab);
+            }
             scene.add(wild);
             const rec = { mesh: wild, taken: false };
-            interactables.push({ type: 'wildsayur', position: new THREE.Vector3(p[0], 1.0, p[1]), radius: 2.5, icon: '🥬', prompt: 'Petik Sayur Liar (E)', wild: rec });
+            interactables.push({ type: 'wildsayur', position: new THREE.Vector3(p[0], 1.0, p[1]), radius: 2.5, icon: '🥬', prompt: 'Petik ' + veg.name + ' Liar (E)', wild: rec, veg: veg });
         });
 
         function gardenState(i) {
@@ -2215,13 +2340,14 @@
             gardenPlots.forEach(function (p, i) {
                 const st = gardenState(i);
                 p.sprout.visible = st !== 'empty';
+                const veg = st === 'empty' ? VEG_TYPES[0] : vegById(playerState.garden[i].veg);
                 if (st === 'growing') {
                     const k = (Date.now() - playerState.garden[i].plantedAt) / GARDEN_TIME;
                     p.sprout.scale.setScalar(0.3 + k * 0.5);
-                    p.sproutMat.color.setHex(0x86efac);
+                    p.sproutMat.color.setHex(veg.light);
                 } else if (st === 'ready') {
                     p.sprout.scale.setScalar(1);
-                    p.sproutMat.color.setHex(0x16a34a);
+                    p.sproutMat.color.setHex(veg.color);
                 }
             });
         }
@@ -2230,10 +2356,11 @@
             const i = item.plotIndex;
             const st = gardenState(i);
             if (st === 'ready') {
+                const vegName = vegById(playerState.garden[i].veg).name;
                 playerState.garden[i] = null;
                 playerState.inventory.sayur += 3;
                 addSkillXP('foraging', 20);
-                showToast('🌱', 'Panen! +3🥬');
+                showToast('🌱', 'Panen! +3 ' + vegName + ' 🥬');
                 updateHUD(); updateGardenVisuals(); saveGame(true);
             } else if (st === 'growing') {
                 const left = Math.max(1, Math.ceil((GARDEN_TIME - (Date.now() - playerState.garden[i].plantedAt)) / 60000));
@@ -2244,8 +2371,9 @@
                     return;
                 }
                 playerState.inventory.sayur -= 1;
-                playerState.garden[i] = { plantedAt: Date.now() };
-                showToast('🌱', 'Sayur ditanam! Panen dalam 3 menit');
+                const vegNew = VEG_TYPES[Math.floor(Math.random() * VEG_TYPES.length)];
+                playerState.garden[i] = { plantedAt: Date.now(), veg: vegNew.id };
+                showToast('🌱', vegNew.name + ' ditanam! Panen dalam 3 menit');
                 updateHUD(); updateGardenVisuals(); saveGame(true);
             }
         }
@@ -2266,7 +2394,7 @@
             rec.mesh.visible = false;
             playerState.inventory.sayur += 1;
             addSkillXP('foraging', 10);
-            showToast('🥬', 'Dapat +1 sayur liar! Tanam di kebun biar berlipat 🌱');
+            showToast('🥬', 'Dapat +1 ' + (item.veg ? item.veg.name : 'Sayur') + ' liar! Tanam di kebun biar berlipat 🌱');
             updateHUD();
             setTimeout(function () { rec.taken = false; rec.mesh.visible = true; }, 90000);
         }
@@ -2275,11 +2403,12 @@
         function petDog() {
             const now = Date.now();
             dogHappyUntil = now + 5000;
+            dogJumpUntil = now + 700; // lompat gembira (fisika squash & stretch ringan)
             showCharacterBubble(dogLabel, '🐶💕 Guk guk! Senang!');
-            if (now - lastPetAt < 10000) { showToast('🐶', 'Brownie senang dielus!'); return; }
+            if (now - lastPetAt < 10000) { showToast('🐶', 'Miciko senang dielus!'); return; }
             lastPetAt = now;
             playerState.energy = Math.min(100, playerState.energy + 5);
-            showToast('🐶', 'Brownie senang! +5 energi 💕');
+            showToast('🐶', 'Miciko senang! +5 energi 💕');
             updateHUD();
         }
 
@@ -2304,6 +2433,10 @@
          ********************************************************************/
         let playerTentMesh = null;
         let tentInteractable = null;
+        let tentStoveInteractable = null;
+        let isSwimming = false;
+        let swimEnergyTick = 0;
+        let swimWarned = false;
         let isInsideTent = false;
 
         function buildOrMoveTent() {
@@ -2357,6 +2490,33 @@
                 matMesh.position.set(0, 0.08, 0);
                 tentGroup.add(matMesh);
 
+                // Tempat tidur beneran: rangka + kasur + bantal + selimut
+                const bedFrame = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.22, 1.7),
+                    new THREE.MeshLambertMaterial({ color: 0x78350f }));
+                bedFrame.position.set(-0.7, 0.19, -0.2); tentGroup.add(bedFrame);
+                const bedMattress = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.14, 1.6),
+                    new THREE.MeshLambertMaterial({ color: 0xfef3c7 }));
+                bedMattress.position.set(-0.7, 0.36, -0.2); tentGroup.add(bedMattress);
+                const bedPillow = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.12, 0.35),
+                    new THREE.MeshLambertMaterial({ color: 0xffffff }));
+                bedPillow.position.set(-0.7, 0.46, -0.85); tentGroup.add(bedPillow);
+                const bedBlanket = new THREE.Mesh(new THREE.BoxGeometry(0.82, 0.08, 0.9),
+                    new THREE.MeshLambertMaterial({ color: 0x38bdf8 }));
+                bedBlanket.position.set(-0.7, 0.44, 0.15); tentGroup.add(bedBlanket);
+
+                // Tungku masak kecil di dalam tenda
+                [[-0.25, 0], [0.25, 0], [0, 0.25]].forEach(function (so) {
+                    const stone = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 8),
+                        new THREE.MeshLambertMaterial({ color: 0x78716c, flatShading: true }));
+                    stone.position.set(0.85 + so[0], 0.12, 0.3 + so[1]); tentGroup.add(stone);
+                });
+                const tentPot = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.22, 0.22, 10),
+                    new THREE.MeshLambertMaterial({ color: 0x1f2937 }));
+                tentPot.position.set(0.85, 0.28, 0.3); tentGroup.add(tentPot);
+                const tentFlame = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.3, 8),
+                    new THREE.MeshBasicMaterial({ color: 0xf97316 }));
+                tentFlame.position.set(0.85, 0.2, 0.3); tentGroup.add(tentFlame);
+
                 const tentLight = new THREE.PointLight(0xfbbf24, 1.2, 6);
                 tentLight.position.set(0, 1.4, 0);
                 tentGroup.add(tentLight);
@@ -2381,12 +2541,23 @@
                     prompt: 'Masuk ke Dalam Kemah (Tekan E)'
                 };
                 interactables.push(tentInteractable);
+                if (!tentStoveInteractable) {
+                    tentStoveInteractable = {
+                        type: 'campfire',
+                        position: new THREE.Vector3(),
+                        radius: 3.0,
+                        icon: '🍳',
+                        prompt: 'Masak di Tenda (Tekan E)'
+                    };
+                    interactables.push(tentStoveInteractable);
+                }
             }
 
             const tentX = playerMesh.position.x + Math.sin(playerMesh.rotation.y) * 2.8;
             const tentZ = playerMesh.position.z + Math.cos(playerMesh.rotation.y) * 2.8;
             playerTentMesh.position.set(tentX, 1.0, tentZ);
             tentInteractable.position.set(tentX, 1.0, tentZ);
+            if (tentStoveInteractable) tentStoveInteractable.position.set(tentX + 0.85, 1.0, tentZ + 0.3);
             playerState.campPosition = { x: Number(tentX.toFixed(2)), z: Number(tentZ.toFixed(2)) };
 
             playSFX('success');
@@ -2432,6 +2603,9 @@
             scene.remove(playerTentMesh);
             const idx = interactables.indexOf(tentInteractable);
             if (idx >= 0) interactables.splice(idx, 1);
+            const sIdx = tentStoveInteractable ? interactables.indexOf(tentStoveInteractable) : -1;
+            if (sIdx >= 0) interactables.splice(sIdx, 1);
+            tentStoveInteractable = null;
             playerTentMesh = null;
             tentInteractable = null;
             playerState.inventory.wood += 1;
@@ -2526,7 +2700,7 @@
         function worldIsNight() { const t = WORLD.time % 24; return t < 5 || t >= 19; }
 
         function updateDayNight(dt) {
-            WORLD.time = (WORLD.time + dt / 20) % 24; // 20 detik real = 1 jam game (1 hari = 8 menit)
+            WORLD.time = (WORLD.time + dt / 150) % 24; // 150 detik real = 1 jam game (1 hari = 60 menit)
             const df = worldDayFactor();
             const t = WORLD.time % 24;
             const sunA = ((t - 6) / 12) * Math.PI;
@@ -2583,7 +2757,7 @@
         };
 
         function triggerJump() {
-            if (isInsideTent || (currentActivity && currentActivity !== 'dancing')) return;
+            if (isSwimming || isInsideTent || (currentActivity && currentActivity !== 'dancing')) return;
             if (playerPhysics.isGrounded) {
                 playerPhysics.vy = playerPhysics.jumpStrength;
                 playerPhysics.isGrounded = false;
@@ -2845,7 +3019,8 @@
 
         // EKSEKUSI INTERAKSI OBJEK PULAU (Mancing, Panjat Pohon dengan Animasi Tangan, Masak, Masuk Kemah)
         function triggerInteraction() {
-            if (!activeTarget || (currentActivity && currentActivity !== 'dancing')) return;
+            if (!activeTarget || (currentActivity && currentActivity !== 'dancing' && !(isInsideTent && activeTarget.type === 'campfire'))) return;
+            if (isSwimming) { showToast('🏊', 'Naik ke darat dulu untuk beraksi!'); return; }
 
             if (activeTarget.type === 'garden') { plantOrHarvestGarden(activeTarget); return; }
             if (activeTarget.type === 'shell') { pickShell(activeTarget); return; }
@@ -3217,6 +3392,7 @@
             renderShop();
             openModal('shop-modal');
         });
+        document.getElementById('btn-call-dog').addEventListener('click', callDog);
         document.getElementById('btn-eat-dish').addEventListener('click', eatDish);
         document.getElementById('btn-mp-modal').addEventListener('click', () => {
             if (typeof Peer === 'undefined') { mpToast('Multiplayer butuh internet 🌐'); return; }
@@ -3226,7 +3402,7 @@
         document.getElementById('btn-mp-create').addEventListener('click', mpCreateRoom);
         document.getElementById('btn-mp-join').addEventListener('click', mpJoinRoom);
         document.getElementById('btn-mp-join-default').addEventListener('click', function () {
-            document.getElementById('mp-code').value = 'ngomonginAI';
+            document.getElementById('mp-code').value = 'miciko';
             mpJoinRoom();
         });
         document.getElementById('btn-mp-leave').addEventListener('click', () => mpLeave(false));
@@ -3449,7 +3625,7 @@
                     // Fisika pasir: jalan di pasir lebih lambat (gesekan tinggi)
                     const curDist = Math.hypot(playerMesh.position.x, playerMesh.position.z);
                     const onSand = (curDist >= 28 && curDist < 32.5);
-                    const moveSpeed = 0.14 * (onSand ? 0.7 : 1);
+                    const moveSpeed = 0.14 * (isSwimming ? 0.55 : onSand ? 0.7 : 1);
                     const moveAngle = Math.atan2(moveSide, moveForward) + cameraAngle;
                     const nextX = playerMesh.position.x + Math.sin(moveAngle) * moveSpeed;
                     const nextZ = playerMesh.position.z + Math.cos(moveAngle) * moveSpeed;
@@ -3468,10 +3644,12 @@
 
                     const distCenter = Math.hypot(nextX, nextZ);
                     const onDock = Math.abs(nextX) < 1.5 && nextZ >= 31 && nextZ <= 40.5;
+                    const inWater = distCenter >= 32.5 && !onDock;
 
-                    if (!blockedByTree && (distCenter < 32.5 || onDock)) {
+                    if (!blockedByTree && (distCenter < 55 || onDock)) {
                         playerMesh.position.x = nextX;
                         playerMesh.position.z = nextZ;
+                        isSwimming = inWater;
                     }
 
                     playerMesh.rotation.y = moveAngle;
@@ -3523,7 +3701,7 @@
                 }
                 // AUDIT: jaring pengaman anti-tenggelam — posisi apa pun yang bikin
                 // karakter di bawah tanah langsung dikembalikan (penyebab "karakter hilang").
-                if (playerMesh.position.y < 1.0) playerMesh.position.y = 1.0;
+                if (!isSwimming && playerMesh.position.y < 1.0) playerMesh.position.y = 1.0;
             }
             // Squash & stretch: mendarat memipih sesaat lalu memantul kembali (fisika kartun)
             (function () {
@@ -3537,6 +3715,41 @@
                     playerMesh.scale.set(1, 1, 1);
                 }
             })();
+            // Berenang: badan setengah tenggelam + dayung tangan/kaki + energi terkuras
+            if (isSwimming) {
+                playerMesh.position.y = -0.45 + Math.sin(elapsed * 6) * 0.08;
+                playerMesh.userData.leftArmPivot.rotation.x = Math.sin(elapsed * 8) * 0.9 - 0.2;
+                playerMesh.userData.rightArmPivot.rotation.x = -Math.sin(elapsed * 8) * 0.9 - 0.2;
+                playerMesh.userData.leftLegPivot.rotation.x = Math.sin(elapsed * 8) * 0.5;
+                playerMesh.userData.rightLegPivot.rotation.x = -Math.sin(elapsed * 8) * 0.5;
+                swimEnergyTick += dt;
+                if (swimEnergyTick >= 1) {
+                    swimEnergyTick = 0;
+                    playerState.energy = Math.max(0, playerState.energy - 1);
+                    updateHUD();
+                    if (playerState.energy <= 20 && !swimWarned) {
+                        swimWarned = true;
+                        showToast('⚠️', 'Energi menipis! Cepat kembali ke pantai!');
+                    }
+                    if (playerState.energy <= 0) {
+                        const d = Math.hypot(playerMesh.position.x, playerMesh.position.z) || 1;
+                        playerMesh.position.x = playerMesh.position.x / d * 31;
+                        playerMesh.position.z = playerMesh.position.z / d * 31;
+                        playerMesh.position.y = 1.0;
+                        isSwimming = false;
+                        showToast('😰', 'Kehabisan energi! Kamu terseret kembali ke pantai.');
+                    }
+                }
+            } else { swimWarned = false; }
+            // Makan: tangan ke mulut + makanan habis gigitan demi gigitan
+            if (eatAnimT0 && Date.now() - eatAnimT0 < 1600) {
+                const ep = (Date.now() - eatAnimT0) / 1600;
+                const bitesLeft = 3 - Math.floor(ep * 3);
+                eatBites.forEach(function (b, bi) { b.visible = bi < bitesLeft; });
+                playerMesh.userData.rightArmPivot.rotation.x = -1.2 + Math.sin(ep * 18) * 0.15;
+                playerMesh.userData.rightArmPivot.rotation.z = 0.3;
+                if (!isSwimming) playerMesh.position.y = 1.0 + Math.abs(Math.sin(ep * 9)) * 0.04;
+            } else if (eatProp.visible) { eatProp.visible = false; }
             updateSparkle(playerMesh, elapsed);
 
             // 5. Cek Jarak Pemain dengan Objek Interaktif
@@ -3544,6 +3757,7 @@
             let minDist = Infinity;
             for (const item of interactables) {
                 if (item.disabled) continue;
+                if (isInsideTent && item.type === 'tent') continue; // di dalam tenda, E dipakai untuk masak
                 const dist = Math.hypot(
                     playerMesh.position.x - item.position.x,
                     playerMesh.position.z - item.position.z
