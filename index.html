@@ -642,6 +642,7 @@
         // Bersihkan musik & pose joget TANPA mengubah aktivitas (idempotent).
         function danceCleanup() {
             stopDanceMusic();
+            playerMesh.rotation.x = 0;
             playerMesh.rotation.z = 0;
             if (playerMesh.position.y < 1.6) playerMesh.position.y = 1.0;
             playerMesh.userData.leftArmPivot.rotation.set(0, 0, 0);
@@ -2065,6 +2066,12 @@
         eatProp.visible = false;
         playerMesh.add(eatProp);
         let eatAnimT0 = 0;
+        // Selimut tidur: hanya terlihat saat tidur di kasur tenda
+        const sleepBlanket = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.95, 0.55),
+            new THREE.MeshLambertMaterial({ color: 0x38bdf8 }));
+        sleepBlanket.position.set(0, 0.95, 0);
+        sleepBlanket.visible = false;
+        playerMesh.add(sleepBlanket);
 
         const playerPhysics = {
             vy: 0,
@@ -2440,6 +2447,8 @@
         let playerTentMesh = null;
         let tentInteractable = null;
         let tentStoveInteractable = null;
+        let tentBedInteractable = null;
+        let isSleeping = false;
         let isSwimming = false;
         let swimEnergyTick = 0;
         let swimWarned = false;
@@ -2553,9 +2562,21 @@
                         position: new THREE.Vector3(),
                         radius: 3.0,
                         icon: '🍳',
-                        prompt: 'Masak di Tenda (Tekan E)'
+                        prompt: 'Masak di Tenda (Tekan E)',
+                        insideOnly: true
                     };
                     interactables.push(tentStoveInteractable);
+                }
+                if (!tentBedInteractable) {
+                    tentBedInteractable = {
+                        type: 'bed',
+                        position: new THREE.Vector3(),
+                        radius: 2.5,
+                        icon: '😴',
+                        prompt: 'Tidur di Kasur (E)',
+                        insideOnly: true
+                    };
+                    interactables.push(tentBedInteractable);
                 }
             }
 
@@ -2564,6 +2585,7 @@
             playerTentMesh.position.set(tentX, 1.0, tentZ);
             tentInteractable.position.set(tentX, 1.0, tentZ);
             if (tentStoveInteractable) tentStoveInteractable.position.set(tentX + 1.4, 1.0, tentZ + 0.5);
+            if (tentBedInteractable) tentBedInteractable.position.set(tentX - 1.1, 1.0, tentZ + 0.9);
             playerState.campPosition = { x: Number(tentX.toFixed(2)), z: Number(tentZ.toFixed(2)) };
 
             playSFX('success');
@@ -2579,16 +2601,18 @@
                 isInsideTent = true;
                 setActivity('camping');
                 // Pindahkan karakter masuk ke tengah tenda dan buat dinding tenda semi-transparan agar terlihat nyaman di dalam
-                playerMesh.position.set(playerTentMesh.position.x - 1.1, 0.85, playerTentMesh.position.z + 0.9);
+                playerMesh.position.set(playerTentMesh.position.x, 1.0, playerTentMesh.position.z);
                 playerMesh.rotation.y = 0;
-                playerMesh.rotation.x = -1.5; // berbaring di kasur: kepala di bantal, kaki di ujung kasur
+                playerMesh.rotation.x = 0;
                 playerMesh.rotation.z = 0;
                 playerTentMesh.userData.tentWall.material.opacity = 0.38;
                 tentOverlay.classList.remove('hidden');
-                showCharacterBubble(playerLabel, '😴 Berbaring di kasur... Zzz');
-                showToast('⛺', 'Berbaring di kasur 😴 — E untuk masak.');
+                showCharacterBubble(playerLabel, '😌 Di dalam tenda...');
+                showToast('⛺', 'Masuk tenda. E di kasur = tidur, E di tungku = masak.');
             } else {
                 isInsideTent = false;
+                isSleeping = false;
+                sleepBlanket.visible = false;
                 clearActivity();
                 playerMesh.position.set(playerTentMesh.position.x, 1.0, playerTentMesh.position.z + 4.2);
                 playerMesh.rotation.x = 0; // kembali tegak
@@ -2597,6 +2621,28 @@
                 tentOverlay.classList.add('hidden');
                 showCharacterBubble(playerLabel, 'Segar kembali habis istirahat di tenda! ✨');
                 showToast('🏕️', 'Kamu keluar dari tenda kemah.');
+            }
+        }
+
+        // Tidur/bangun di kasur: E saat menarget kasur = berbaring, E lagi = bangun
+        function toggleSleep() {
+            if (!playerTentMesh) return;
+            if (!isSleeping) {
+                isSleeping = true;
+                playerMesh.position.set(playerTentMesh.position.x - 1.1, 0.85, playerTentMesh.position.z + 0.9);
+                playerMesh.rotation.y = 0;
+                playerMesh.rotation.x = -1.5; // berbaring: kepala di bantal, kaki di ujung kasur
+                playerMesh.rotation.z = 0;
+                sleepBlanket.visible = true;
+                showCharacterBubble(playerLabel, '😴 Tidur nyenyak... Zzz');
+                showToast('😴', 'Tidur di kasur. E lagi untuk bangun.');
+            } else {
+                isSleeping = false;
+                sleepBlanket.visible = false;
+                playerMesh.rotation.x = 0;
+                playerMesh.rotation.z = 0;
+                playerMesh.position.y = 1.0;
+                showCharacterBubble(playerLabel, '🥱 Bangun! Segar kembali!');
             }
         }
 
@@ -2616,6 +2662,9 @@
             const sIdx = tentStoveInteractable ? interactables.indexOf(tentStoveInteractable) : -1;
             if (sIdx >= 0) interactables.splice(sIdx, 1);
             tentStoveInteractable = null;
+            const bIdx = tentBedInteractable ? interactables.indexOf(tentBedInteractable) : -1;
+            if (bIdx >= 0) interactables.splice(bIdx, 1);
+            tentBedInteractable = null;
             playerTentMesh = null;
             tentInteractable = null;
             playerState.inventory.wood += 1;
@@ -2768,7 +2817,7 @@
         };
 
         function triggerJump() {
-            if (isSwimming || isInsideTent || (currentActivity && currentActivity !== 'dancing')) return;
+            if (isSwimming || isSleeping || (currentActivity && currentActivity !== 'dancing')) return;
             if (playerPhysics.isGrounded) {
                 playerPhysics.vy = playerPhysics.jumpStrength;
                 playerPhysics.isGrounded = false;
@@ -2809,7 +2858,7 @@
             }
             if (k === 'e') {
                 if (isInsideTent) {
-                    if (activeTarget && activeTarget.type === 'campfire') triggerInteraction(); // E di dalam = masak
+                    if (activeTarget && (activeTarget.type === 'campfire' || activeTarget.type === 'bed')) triggerInteraction(); // E di dalam = masak/tidur
                     else toggleEnterTent();
                 } else {
                     triggerInteraction();
@@ -3031,7 +3080,7 @@
 
         // EKSEKUSI INTERAKSI OBJEK PULAU (Mancing, Panjat Pohon dengan Animasi Tangan, Masak, Masuk Kemah)
         function triggerInteraction() {
-            if (!activeTarget || (currentActivity && currentActivity !== 'dancing' && !(isInsideTent && activeTarget.type === 'campfire'))) return;
+            if (!activeTarget || (currentActivity && currentActivity !== 'dancing' && !(isInsideTent && (activeTarget.type === 'campfire' || activeTarget.type === 'bed')))) return;
             if (isSwimming) { showToast('🏊', 'Naik ke darat dulu untuk beraksi!'); return; }
 
             if (activeTarget.type === 'garden') { plantOrHarvestGarden(activeTarget); return; }
@@ -3041,6 +3090,11 @@
 
             if (activeTarget.type === 'tent') {
                 toggleEnterTent();
+                return;
+            }
+
+            if (activeTarget.type === 'bed') {
+                toggleSleep();
                 return;
             }
 
@@ -3623,7 +3677,7 @@
             }
 
             // 4. Pergerakan Karakter, Ayunan Tangan & Fisika Lompatan
-            if (!currentActivity || currentActivity === 'dancing') {
+            if (!currentActivity || currentActivity === 'dancing' || currentActivity === 'camping') {
                 let moveForward = 0;
                 let moveSide = 0;
                 if (Input.pressed('up')) moveForward -= 1;
@@ -3658,7 +3712,7 @@
                     const onDock = Math.abs(nextX) < 1.5 && nextZ >= 31 && nextZ <= 40.5;
                     const inWater = distCenter >= 32.5 && !onDock;
 
-                    if (!blockedByTree && !isInsideTent && (distCenter < 55 || onDock)) {
+                    if (!blockedByTree && !isSleeping && (distCenter < 55 || onDock)) {
                         playerMesh.position.x = nextX;
                         playerMesh.position.z = nextZ;
                         isSwimming = inWater;
@@ -3667,9 +3721,12 @@
                     playerMesh.rotation.y = moveAngle;
                     updateWalkCycle(playerMesh, true, dt);
                 } else if (currentActivity === 'dancing') {
-                    const mv = danceMoveIdx % 4;
+                    const mv = Math.floor(elapsed / 3) % 6; // ganti gerakan tiap 3 detik, tidak tergantung audio
                     const b = elapsed * 10;
                     const LA = playerMesh.userData.leftArmPivot, RA = playerMesh.userData.rightArmPivot;
+                    playerMesh.rotation.x = 0;
+                    playerMesh.rotation.z = 0;
+                    if (mv === 0 || mv === 1 || mv === 3) playerMesh.position.y = 1.0;
                     if (mv === 0) {          // 0: helikopter! putar + tangan ke atas
                         playerMesh.rotation.y += 0.16;
                         LA.rotation.set(-Math.PI * 0.9, 0, -0.4 + Math.sin(b) * 0.3);
@@ -3682,12 +3739,21 @@
                         playerMesh.position.y = 1.0 + Math.abs(Math.sin(b * 0.5)) * 0.35;
                         LA.rotation.set(-1.2 + Math.sin(b) * 0.5, 0, -0.3);
                         RA.rotation.set(-1.2 - Math.sin(b) * 0.5, 0, 0.3);
-                    } else {                 // 3: wave tangan bergantian
+                    } else if (mv === 3) {   // 3: wave tangan bergantian
                         playerMesh.rotation.y += 0.05;
-                        playerMesh.rotation.z *= 0.9;
                         const w = Math.sin(b * 0.7);
                         LA.rotation.set(-1.4, 0, w > 0 ? -0.9 : -0.2);
                         RA.rotation.set(-1.4, 0, w > 0 ? 0.2 : 0.9);
+                    } else if (mv === 4) {   // 4: running man maju-mundur
+                        playerMesh.rotation.x = 0.15;
+                        playerMesh.position.y = 1.0 + Math.abs(Math.sin(b * 0.5)) * 0.15;
+                        LA.rotation.set(-0.9 + Math.sin(b) * 0.9, 0, -0.3);
+                        RA.rotation.set(-0.9 - Math.sin(b) * 0.9, 0, 0.3);
+                    } else {                 // 5: jongkok + putar pelan
+                        playerMesh.position.y = 1.0 - Math.abs(Math.sin(b * 0.5)) * 0.25;
+                        playerMesh.rotation.y += 0.08;
+                        LA.rotation.set(-0.6, 0, -0.9 + Math.sin(b) * 0.2);
+                        RA.rotation.set(-0.6, 0, 0.9 - Math.sin(b) * 0.2);
                     }
                 } else {
                     updateWalkCycle(playerMesh, false, dt);
@@ -3713,7 +3779,9 @@
                 }
                 // AUDIT: jaring pengaman anti-tenggelam — posisi apa pun yang bikin
                 // karakter di bawah tanah langsung dikembalikan (penyebab "karakter hilang").
-                if (!isSwimming && !isInsideTent && playerMesh.position.y < 1.0) playerMesh.position.y = 1.0;
+                // Jaring anti-tenggelam: ambang 0.7 saat joget agar gerakan jongkok (y 0.75) tidak ikut terhapus
+                const floorY = (currentActivity === 'dancing') ? 0.7 : 1.0;
+                if (!isSwimming && !isSleeping && playerMesh.position.y < floorY) playerMesh.position.y = floorY;
             }
             // Squash & stretch: mendarat memipih sesaat lalu memantul kembali (fisika kartun)
             (function () {
@@ -3773,11 +3841,17 @@
                 if (!isSwimming) playerMesh.position.y = 1.0 + Math.abs(Math.sin(ep * 9)) * 0.04;
             } else if (eatProp.visible) { eatProp.visible = false; }
             updateGardenVisuals(elapsed); // tanaman tumbuh & bergoyang tiap frame
-            // Baring di kasur saat di dalam tenda: badan rebah, kaki-tangan rileks, Zzz berkala
-            if (isInsideTent) {
+            // Keluar tenda otomatis kalau jalan menembus dinding (bukan saat tidur)
+            if (isInsideTent && !isSleeping && playerTentMesh) {
+                const dTent = Math.hypot(playerMesh.position.x - playerTentMesh.position.x, playerMesh.position.z - playerTentMesh.position.z);
+                if (dTent > 4.2) toggleEnterTent();
+            }
+            // Tidur di kasur: badan rebah + napas pelan, kaki-tangan rileks, Zzz berkala
+            if (isSleeping) {
                 playerMesh.rotation.x = -1.5;
                 playerMesh.rotation.z = 0;
-                playerMesh.position.y = 0.85;
+                playerMesh.position.y = 0.85 + Math.sin(elapsed * 1.5) * 0.02; // napas naik-turun pelan
+                sleepBlanket.visible = true;
                 playerMesh.userData.leftLegPivot.rotation.x = 0;
                 playerMesh.userData.rightLegPivot.rotation.x = 0;
                 playerMesh.userData.leftArmPivot.rotation.x = 0.2;
@@ -3794,8 +3868,8 @@
             let minDist = Infinity;
             for (const item of interactables) {
                 if (item.disabled) continue;
-                if (isInsideTent && item.type === 'tent') continue; // di dalam tenda, E dipakai untuk masak
-                if (!isInsideTent && item.type === 'campfire' && item.prompt.indexOf('Tenda') >= 0) continue; // tungku hanya dari dalam
+                if (isInsideTent && item.type === 'tent') continue; // di dalam tenda, E dipakai untuk masak/tidur
+                if (!isInsideTent && item.insideOnly) continue; // tungku & kasur hanya dari dalam tenda
                 const dist = Math.hypot(
                     playerMesh.position.x - item.position.x,
                     playerMesh.position.z - item.position.z
