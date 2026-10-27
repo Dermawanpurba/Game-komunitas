@@ -109,7 +109,7 @@
             </div>
 
             <!-- Detail Skill (dilipat default) -->
-            <div id="player-detail" class="hidden mt-2 grid grid-cols-4 gap-2 text-xs bg-slate-900/60 p-2 rounded-xl border border-slate-700/50">
+            <div id="player-detail" class="hidden mt-2 grid grid-cols-3 gap-2 text-xs bg-slate-900/60 p-2 rounded-xl border border-slate-700/50">
                 <div>
                     <div class="flex justify-between text-sky-300 font-semibold mb-1">
                         <span>🎣 Mancing</span>
@@ -146,6 +146,24 @@
                         <div id="bar-camping" class="bg-orange-400 h-full transition-all duration-300" style="width: 0%"></div>
                     </div>
                 </div>
+                <div>
+                    <div class="flex justify-between text-emerald-300 font-semibold mb-1">
+                        <span>🌱 Berkebun</span>
+                        <span id="lvl-farming">Lv.1</span>
+                    </div>
+                    <div class="w-full bg-slate-700 h-1.5 rounded-full overflow-hidden">
+                        <div id="bar-farming" class="bg-emerald-400 h-full transition-all duration-300" style="width: 0%"></div>
+                    </div>
+                </div>
+                <div>
+                    <div class="flex justify-between text-violet-300 font-semibold mb-1">
+                        <span>🤝 Dagang</span>
+                        <span id="lvl-trading">Lv.1</span>
+                    </div>
+                    <div class="w-full bg-slate-700 h-1.5 rounded-full overflow-hidden">
+                        <div id="bar-trading" class="bg-violet-400 h-full transition-all duration-300" style="width: 0%"></div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -176,6 +194,14 @@
                     <span>🍲</span>
                     <span id="inv-dish" class="font-bold text-sm text-rose-300">0</span>
                 </button>
+                <div class="flex items-center gap-1.5 px-2.5 py-1 bg-slate-800/80 rounded-xl border border-slate-700" title="Kerang (uang Pulau Dagang)">
+                    <span>🐚</span>
+                    <span id="inv-shell" class="font-bold text-sm text-pink-300">0</span>
+                </div>
+                <div class="flex items-center gap-1.5 px-2.5 py-1 bg-slate-800/80 rounded-xl border border-slate-700" title="Pupuk Organik">
+                    <span>🌿</span>
+                    <span id="inv-pupuk" class="font-bold text-sm text-lime-300">0</span>
+                </div>
                 <button id="btn-mission-modal" class="bg-amber-400 hover:bg-amber-300 active:scale-95 text-slate-950 font-bold text-xs px-3 py-2 rounded-xl transition flex items-center gap-1.5 shadow-lg shadow-amber-400/20">
                     <span>📋</span> <span class="hidden sm:inline">Misi</span>
                 </button>
@@ -472,6 +498,34 @@
         </div>
     </div>
 
+    <div id="trader-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+        <div class="glass rounded-3xl max-w-lg w-full p-6 border border-slate-700 shadow-2xl space-y-4">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center gap-2.5">
+                    <span class="text-2xl">🏪</span>
+                    <div>
+                        <h2 class="font-extrabold text-base sm:text-lg text-amber-300">Toko Pulau Dagang</h2>
+                        <p class="text-xs text-slate-400">Jual hasil olahan &bull; Beli pupuk dan peralatan</p>
+                    </div>
+                </div>
+                <button data-close-modal="trader-modal" class="text-slate-400 hover:text-white text-xl font-bold px-2">&times;</button>
+            </div>
+            <div class="flex items-center gap-2 text-sm bg-slate-900/60 border border-slate-700/50 rounded-2xl px-3.5 py-2.5">
+                <span>🐚 Kerang: <b id="trader-shells" class="text-pink-300">0</b></span>
+                <span class="text-slate-500">•</span>
+                <span id="trader-bonus" class="text-xs text-violet-300"></span>
+            </div>
+            <div>
+                <h3 class="text-xs font-extrabold tracking-wide text-emerald-300 mb-2">JUAL HASIL OLAHAN</h3>
+                <div id="trader-sell-list" class="space-y-2.5 max-h-56 overflow-y-auto"></div>
+            </div>
+            <div>
+                <h3 class="text-xs font-extrabold tracking-wide text-amber-300 mb-2">BELI PUPUK &amp; PERALATAN</h3>
+                <div id="trader-buy-list" class="space-y-2.5 max-h-56 overflow-y-auto"></div>
+            </div>
+        </div>
+    </div>
+
     <div id="github-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
         <div class="glass rounded-3xl max-w-lg w-full p-6 border border-slate-700 shadow-2xl space-y-4">
             <div class="flex justify-between items-center">
@@ -508,7 +562,9 @@
                 fishing: { level: 1, xp: 10 },
                 foraging: { level: 1, xp: 10 },
                 cooking: { level: 1, xp: 10 },
-                camping: { level: 1, xp: 0 }
+                camping: { level: 1, xp: 0 },
+                farming: { level: 1, xp: 0 },
+                trading: { level: 1, xp: 0 }
             },
             inventory: {
                 fish: 0,
@@ -517,11 +573,12 @@
                 dish: 0,
                 crab: 0,
                 sayur: 0,
-                shell: 0
+                shell: 0,
+                pupuk: 0
             },
             energy: 100,
             emergencyAt: 0, // timestamp terakhir ambil makanan darurat (cooldown 10 menit)
-            upgrades: { rod: false },
+            upgrades: { rod: false, hoe: false, stove: false },
             missions: null,
             garden: [null, null, null, null, null, null],
             campPosition: null,
@@ -676,10 +733,12 @@
             document.getElementById('inv-dish').textContent = playerState.inventory.dish;
             document.getElementById('inv-crab').textContent = playerState.inventory.crab;
             document.getElementById('inv-sayur').textContent = playerState.inventory.sayur;
+            document.getElementById('inv-shell').textContent = playerState.inventory.shell || 0;
+            document.getElementById('inv-pupuk').textContent = playerState.inventory.pupuk || 0;
 
             document.getElementById('bar-energy').style.width = playerState.energy + '%';
             document.getElementById('txt-energy').textContent = Math.round(playerState.energy);
-            ['fishing', 'foraging', 'cooking', 'camping'].forEach(skill => {
+            ['fishing', 'foraging', 'cooking', 'camping', 'farming', 'trading'].forEach(skill => {
                 const data = playerState.skills[skill];
                 document.getElementById(`lvl-${skill}`).textContent = `Lv.${data.level}`;
                 document.getElementById(`bar-${skill}`).style.width = `${data.xp}%`;
@@ -694,6 +753,7 @@
             { id:'sup_nelayan', name:'Sup Spesial Nelayan',icon:'🦐', need:{fish:2,coconut:1},   give:3, xp:120, minLevel:5 },
             { id:'kepiting_bakar', name:'Kepiting Bakar', icon:'🦀', need:{crab:1}, give:1, xp:40, minLevel:2 },
             { id:'tumis_sayur', name:'Tumis Sayur', icon:'🥬', need:{sayur:1}, give:1, xp:35, minLevel:1 },
+            { id:'ikan_saus', name:'Ikan Saus Pulau', icon:'🐠', need:{fish:1, sayur:1}, give:1, xp:60, minLevel:1, requiresStove:true },
         ];
         const MISSION_DEFS = [
             { id:'fish2',  icon:'🎣', text:'Tangkap 2 ikan',            target:2,  skill:'fishing',  xp:50 },
@@ -753,7 +813,8 @@
                     const px = playerMesh.position.x, pz = playerMesh.position.z;
                     const dHome = Math.hypot(px, pz);
                     const onDockL = Math.abs(px) < 1.5 && pz >= 31 && pz <= 40.5;
-                    if (!(dHome < 32.5 || onDockL)) { playerMesh.position.x = 0; playerMesh.position.z = 6; }
+                    const dIsletL = Math.hypot(px - ISLET.x, pz - ISLET.z);
+                    if (!(dHome < 32.5 || onDockL || dIsletL < ISLET.landR)) { playerMesh.position.x = 0; playerMesh.position.z = 6; }
                 })();
                 updateHUD();
                 return true;
@@ -920,6 +981,7 @@
         }
         function canCook(r) {
             if (playerState.skills.cooking.level < r.minLevel) return false;
+            if (r.requiresStove && !playerState.upgrades.stove) return false;
             for (const k of Object.keys(r.need)) {
                 if ((playerState.inventory[k] || 0) < r.need[k]) return false;
             }
@@ -931,6 +993,7 @@
             RECIPES.forEach(function (r) {
                 const ok = canCook(r);
                 const locked = playerState.skills.cooking.level < r.minLevel;
+                const stoveLocked = r.requiresStove && !playerState.upgrades.stove;
                 const row = document.createElement('div');
                 row.className = 'bg-slate-900/60 border border-slate-700/50 rounded-2xl p-3.5 flex items-center gap-3' + (ok ? '' : ' opacity-60');
                 row.innerHTML =
@@ -938,7 +1001,7 @@
                     '<div class="flex-1">' +
                         '<div class="text-sm font-bold text-slate-100">' + r.name + '</div>' +
                         '<div class="text-[11px] text-slate-400 mt-0.5">' + recipeCostText(r) + ' → ' + r.give + '🍲 &nbsp;•&nbsp; +' + r.xp + ' XP' +
-                        (locked ? ' &nbsp;•&nbsp; 🔒 Butuh Masak Lv.' + r.minLevel : '') + '</div>' +
+                        (locked ? ' &nbsp;•&nbsp; 🔒 Butuh Masak Lv.' + r.minLevel : '') + (stoveLocked ? ' &nbsp;•&nbsp; 🔥 Butuh Kompor Portable' : '') + '</div>' +
                     '</div>' +
                     '<button data-cook="' + r.id + '" ' + (ok ? '' : 'disabled') +
                         ' class="text-xs font-extrabold px-4 py-2 rounded-xl transition ' +
@@ -1036,11 +1099,113 @@
             saveGame(true);
         }
 
+        // ===== TAHAP 2b: TOKO PULAU DAGANG (jual hasil olahan, beli pupuk & peralatan) =====
+        const TRADER_SELL = [
+            { key:'dish', icon:'🍲', name:'Hidangan Olahan', base:5, desc:'Hasil masakan apa pun' },
+            { key:'fish', icon:'🐟', name:'Ikan Mentah', base:2, desc:'Hasil tangkapan' },
+            { key:'crab', icon:'🦀', name:'Kepiting', base:3, desc:'Hasil tangkapan pantai' },
+            { key:'coconut', icon:'🥥', name:'Buah Kelapa', base:1, desc:'Hasil panjat pohon' },
+            { key:'sayur', icon:'🥬', name:'Sayur', base:1, desc:'Hasil kebun & liar' }
+        ];
+        const TRADER_BUY = [
+            { id:'pupuk', icon:'🌿', name:'Pupuk Organik', cost:6, desc:'Percepat 50% pertumbuhan 1 petak kebun', once:false },
+            { id:'hoe', icon:'⛏️', name:'Cangkul', cost:25, desc:'Panen +1 sayur & tumbuh 25% lebih cepat', once:true },
+            { id:'stove', icon:'🍳', name:'Kompor Portable', cost:30, desc:'Buka resep Ikan Saus Pulau', once:true }
+        ];
+        function traderSellPrice(item) {
+            const lv = (playerState.skills.trading && playerState.skills.trading.level) || 1;
+            return Math.max(1, Math.round(item.base * (1 + 0.1 * (lv - 1))));
+        }
+        function renderTrader() {
+            document.getElementById('trader-shells').textContent = playerState.inventory.shell || 0;
+            const lv = (playerState.skills.trading && playerState.skills.trading.level) || 1;
+            document.getElementById('trader-bonus').textContent = 'Bonus Dagang Lv.' + lv + ': +' + ((lv - 1) * 10) + '% harga jual';
+            const sellBox = document.getElementById('trader-sell-list');
+            sellBox.innerHTML = '';
+            TRADER_SELL.forEach(function (item) {
+                const owned = playerState.inventory[item.key] || 0;
+                const price = traderSellPrice(item);
+                const row = document.createElement('div');
+                row.className = 'bg-slate-900/60 border border-slate-700/50 rounded-2xl p-3.5 flex items-center gap-3' + (owned > 0 ? '' : ' opacity-60');
+                row.innerHTML =
+                    '<span class="text-3xl">' + item.icon + '</span>' +
+                    '<div class="flex-1">' +
+                        '<div class="text-sm font-bold text-slate-100">' + item.name + '</div>' +
+                        '<div class="text-[11px] text-slate-400 mt-0.5">' + item.desc + ' &bull; Punya: ' + owned + ' &bull; Harga: ' + price + '🐚</div>' +
+                    '</div>' +
+                    '<button data-sell="' + item.key + '" ' + (owned > 0 ? '' : 'disabled') +
+                        ' class="text-xs font-extrabold px-3 py-2 rounded-xl transition ' +
+                        (owned > 0 ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950' : 'bg-slate-700 text-slate-500 cursor-not-allowed') + '">Jual 1</button>' +
+                    '<button data-sellall="' + item.key + '" ' + (owned > 0 ? '' : 'disabled') +
+                        ' class="text-xs font-extrabold px-3 py-2 rounded-xl transition ' +
+                        (owned > 0 ? 'bg-emerald-600 hover:bg-emerald-500 text-white' : 'bg-slate-700 text-slate-500 cursor-not-allowed') + '">Semua</button>';
+                sellBox.appendChild(row);
+            });
+            sellBox.querySelectorAll('[data-sell]').forEach(function (b) {
+                b.addEventListener('click', function () { sellTrader(b.getAttribute('data-sell'), false); });
+            });
+            sellBox.querySelectorAll('[data-sellall]').forEach(function (b) {
+                b.addEventListener('click', function () { sellTrader(b.getAttribute('data-sellall'), true); });
+            });
+            const buyBox = document.getElementById('trader-buy-list');
+            buyBox.innerHTML = '';
+            TRADER_BUY.forEach(function (item) {
+                const owned = item.once && playerState.upgrades[item.id];
+                const affordable = !owned && (playerState.inventory.shell || 0) >= item.cost;
+                const row = document.createElement('div');
+                row.className = 'bg-slate-900/60 border border-slate-700/50 rounded-2xl p-3.5 flex items-center gap-3' + (affordable ? '' : ' opacity-60');
+                row.innerHTML =
+                    '<span class="text-3xl">' + item.icon + '</span>' +
+                    '<div class="flex-1">' +
+                        '<div class="text-sm font-bold text-slate-100">' + item.name + '</div>' +
+                        '<div class="text-[11px] text-slate-400 mt-0.5">' + item.desc + ' &bull; Harga: ' + item.cost + '🐚</div>' +
+                    '</div>' +
+                    (owned
+                        ? '<span class="text-emerald-400 font-bold text-xs">✅ Dimiliki</span>'
+                        : '<button data-buytrader="' + item.id + '" ' + (affordable ? '' : 'disabled') +
+                          ' class="text-xs font-extrabold px-4 py-2 rounded-xl transition ' +
+                          (affordable ? 'bg-amber-400 hover:bg-amber-300 text-slate-950' : 'bg-slate-700 text-slate-500 cursor-not-allowed') + '">Beli</button>');
+                buyBox.appendChild(row);
+            });
+            buyBox.querySelectorAll('[data-buytrader]').forEach(function (b) {
+                b.addEventListener('click', function () { buyTrader(b.getAttribute('data-buytrader')); });
+            });
+        }
+        function sellTrader(key, all) {
+            const item = TRADER_SELL.find(function (x) { return x.key === key; });
+            if (!item) return;
+            const owned = playerState.inventory[key] || 0;
+            if (owned < 1) { showToast('🏪', 'Tidak ada ' + item.name + ' untuk dijual!'); return; }
+            const n = all ? owned : 1;
+            const total = traderSellPrice(item) * n;
+            playerState.inventory[key] -= n;
+            playerState.inventory.shell = (playerState.inventory.shell || 0) + total;
+            addSkillXP('trading', 10);
+            playSFX('success');
+            showToast('🏪', 'Terjual ' + n + 'x ' + item.name + '! +' + total + '🐚');
+            updateHUD(); renderTrader(); saveGame(true);
+        }
+        function buyTrader(id) {
+            const item = TRADER_BUY.find(function (x) { return x.id === id; });
+            if (!item) return;
+            if (item.once && playerState.upgrades[id]) return;
+            if ((playerState.inventory.shell || 0) < item.cost) { showToast('🏪', 'Kerang tidak cukup!'); return; }
+            playerState.inventory.shell -= item.cost;
+            if (id === 'pupuk') playerState.inventory.pupuk = (playerState.inventory.pupuk || 0) + 1;
+            else if (id === 'hoe') playerState.upgrades.hoe = true;
+            else if (id === 'stove') playerState.upgrades.stove = true;
+            addSkillXP('trading', 10);
+            playSFX('success');
+            showToast('🏪', 'Membeli: ' + item.name + '!');
+            showCharacterBubble(playerLabel, 'Dapat ' + item.name + '! 🛍️✨');
+            updateHUD(); renderTrader(); saveGame(true);
+        }
+
         // ===== Modal helper umum =====
         function openModal(id) { resetKeys(); document.getElementById(id).classList.remove('hidden'); }
         function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
         function anyModalOpen() {
-            return ['github-modal', 'recipe-modal', 'mission-modal', 'shop-modal', 'mp-modal'].some(function (id) {
+            return ['github-modal', 'recipe-modal', 'mission-modal', 'shop-modal', 'mp-modal', 'trader-modal'].some(function (id) {
                 return !document.getElementById(id).classList.contains('hidden');
             });
         }
@@ -2082,9 +2247,9 @@
 
         // Buat 3 NPC Anggota Komunitas
         const npcs = [
-            { name: 'Budi_Dev', color: 0xf59e0b, hat: 0x3b82f6, x: -3.2, z: -1.8, rot: 1.1, chats: ['Seru banget mancing pakai bar ketegangan!', 'Kalau bar hijau langsung sentak jorannya!', 'Save ke GitHub lancar jaya!'] },
-            { name: 'Siti_Art', color: 0xec4899, hat: 0xfbbf24, x: 3.3, z: -1.5, rot: -1.2, chats: ['Tangan karakternya kelihatan jelas pas metik kelapa 🥥', 'Enak banget ngadem di dalam tenda kemah!', 'Coba ngomong pakai tombol Mic 🎙️'] },
-            { name: 'Rama_JS', color: 0x38bdf8, hat: 0x10b981, x: -1.5, z: 3.4, rot: 2.5, chats: ['Tadi ikannya lepas gara-gara telat tarik kail 😅', 'Ayo lompat-lompat bareng tekan Spasi!', 'Suara voice chat jernih banget!'] }
+            { name: 'Budi_Dev', color: 0xf59e0b, hat: 0x3b82f6, x: -3.2, z: -1.8, rot: 1.1, role: 'fisher', chats: ['Seru banget mancing pakai bar ketegangan!', 'Kalau bar hijau langsung sentak jorannya!', 'Save ke GitHub lancar jaya!'] },
+            { name: 'Siti_Art', color: 0xec4899, hat: 0xfbbf24, x: 3.3, z: -1.5, rot: -1.2, role: 'gardener', chats: ['Tangan karakternya kelihatan jelas pas metik kelapa 🥥', 'Enak banget ngadem di dalam tenda kemah!', 'Coba ngomong pakai tombol Mic 🎙️'] },
+            { name: 'Rama_JS', color: 0x38bdf8, hat: 0x10b981, x: -1.5, z: 3.4, rot: 2.5, role: 'cook', chats: ['Tadi ikannya lepas gara-gara telat tarik kail 😅', 'Ayo lompat-lompat bareng tekan Spasi!', 'Suara voice chat jernih banget!'] }
         ];
 
         const npcObjects = npcs.map(data => {
@@ -2093,7 +2258,214 @@
             mesh.rotation.y = data.rot;
             scene.add(mesh);
             const ui = createLabelUI(data.name, 'bg-sky-400');
-            return { ...data, mesh, ui, bubbleTimer: null };
+            return { ...data, mesh, ui, bubbleTimer: null, actState: 'idle', actUntil: 0, actTarget: null, actSpot: null, actWork: null, actFace: null, faced: false, nextBubble: 0, cycleIdx: -1 };
+        });
+
+        // ===== AKTIVITAS NPC: Budi mancing, Siti berkebun, Rama memasak =====
+        const NPC_SPOTS = {
+            fish: { x: 0, z: 37.5, face: { x: 0, z: 45 } },
+            garden: { x: 7.5, z: 2.2, face: { x: 7.5, z: 7.5 } },
+            fire: { x: 2.4, z: 0.5, face: { x: 0, z: 0 } },
+            plazaA: { x: -3, z: -2 },
+            plazaB: { x: 3, z: 2 },
+            beachW: { x: -14, z: 18 },
+            beachE: { x: 16, z: 16 },
+            wild: { x: -8, z: 12, face: { x: -8, z: 12 } }
+        };
+        const NPC_CYCLES = {
+            fisher: ['fish', 'plazaA', 'beachW', 'fish', 'plazaB'],
+            gardener: ['garden', 'wild', 'plazaB', 'garden', 'plazaA'],
+            cook: ['fire', 'plazaA', 'fish', 'fire', 'beachE']
+        };
+        const NPC_WORK = { fish: 'fishing', garden: 'gardening', wild: 'foraging', fire: 'cooking' };
+        const NPC_WORK_LINES = {
+            fishing: ['🎣 Lagi mancing...', '🎣 Semoga dapat ikan besar!', '🐟 Umpannya baru nih!'],
+            gardening: ['🌱 Merawat kebun...', '💧 Siram-siram dulu!', '🌱 Tanamannya tumbuh subur!'],
+            foraging: ['🥬 Cari sayur liar...', '🥬 Yang ini segar banget!'],
+            cooking: ['🍳 Lagi masak...', '🔥 Apinya pas!', '🍲 Wanginya sampai sini!']
+        };
+        function npcPickNext(npc) {
+            const cyc = NPC_CYCLES[npc.role] || NPC_CYCLES.fisher;
+            npc.cycleIdx = (typeof npc.cycleIdx === 'number' ? npc.cycleIdx + 1 : 0) % cyc.length;
+            const key = cyc[npc.cycleIdx];
+            const spot = NPC_SPOTS[key];
+            npc.actTarget = { x: spot.x, z: spot.z };
+            npc.actSpot = key;
+            npc.actState = 'walk';
+            npc.faced = false;
+            npc.actUntil = Date.now() + 60000;
+        }
+        function npcEnterWork(npc) {
+            const spot = NPC_SPOTS[npc.actSpot];
+            npc.actState = 'work';
+            npc.actWork = NPC_WORK[npc.actSpot] || 'idle';
+            npc.actUntil = Date.now() + 25000 + Math.random() * 20000;
+            npc.faced = false;
+            npc.actFace = spot.face || null;
+            const lines = NPC_WORK_LINES[npc.actWork] || ['💬'];
+            showCharacterBubble(npc.ui, lines[Math.floor(Math.random() * lines.length)]);
+            npc.nextBubble = Date.now() + 14000 + Math.random() * 12000;
+        }
+        function updateNPCActivity(npc, idx, dt, elapsed, isDancingNow) {
+            const u = npc.mesh.userData;
+            const now = Date.now();
+            const nearPlayer = Math.hypot(npc.mesh.position.x - playerMesh.position.x, npc.mesh.position.z - playerMesh.position.z) < 14;
+            if (isDancingNow && !worldIsNight() && nearPlayer) {
+                updateWalkCycle(npc.mesh, false, dt);
+                return;
+            }
+            if (worldIsNight()) {
+                const sleepSpots = [{ x: -2.5, z: 2.5 }, { x: 2.5, z: 2.5 }, { x: 0, z: -3 }];
+                const sp = sleepSpots[idx % sleepSpots.length];
+                if (npc.actState !== 'sleep') {
+                    npc.actState = 'sleep'; npc.actTarget = sp; npc.faced = false;
+                    showCharacterBubble(npc.ui, '💤💤');
+                    npc.nextBubble = now + 22000;
+                }
+                const d = Math.hypot(sp.x - npc.mesh.position.x, sp.z - npc.mesh.position.z);
+                if (d > 0.8) {
+                    npc.mesh.lookAt(sp.x, npc.mesh.position.y, sp.z);
+                    const step = 2.0 * dt;
+                    npc.mesh.position.x += (sp.x - npc.mesh.position.x) / d * Math.min(d, step);
+                    npc.mesh.position.z += (sp.z - npc.mesh.position.z) / d * Math.min(d, step);
+                    updateWalkCycle(npc.mesh, true, dt);
+                } else {
+                    updateWalkCycle(npc.mesh, false, dt);
+                    u.leftArmPivot.rotation.x *= 0.85; u.rightArmPivot.rotation.x *= 0.85;
+                    npc.mesh.rotation.x *= 0.85;
+                    if (now > npc.nextBubble) { showCharacterBubble(npc.ui, '💤 Zzz...'); npc.nextBubble = now + 24000; }
+                }
+                return;
+            }
+            if (npc.actState === 'sleep') { npc.actState = 'idle'; npc.actUntil = 0; showCharacterBubble(npc.ui, '☀️ Pagi!'); }
+            if (npc.actState === 'walk' && npc.actTarget) {
+                const t = npc.actTarget;
+                const d = Math.hypot(t.x - npc.mesh.position.x, t.z - npc.mesh.position.z);
+                if (d < 0.8 || now > npc.actUntil) {
+                    if (NPC_WORK[npc.actSpot]) npcEnterWork(npc);
+                    else { npc.actState = 'idle'; npc.actUntil = now + 4000 + Math.random() * 5000; }
+                } else {
+                    npc.mesh.lookAt(t.x, npc.mesh.position.y, t.z);
+                    const step = 2.0 * dt;
+                    npc.mesh.position.x += (t.x - npc.mesh.position.x) / d * Math.min(d, step);
+                    npc.mesh.position.z += (t.z - npc.mesh.position.z) / d * Math.min(d, step);
+                    updateWalkCycle(npc.mesh, true, dt);
+                    npc.mesh.rotation.x *= 0.85;
+                }
+                return;
+            }
+            if (npc.actState === 'work') {
+                updateWalkCycle(npc.mesh, false, dt);
+                if (npc.actFace && !npc.faced) { npc.mesh.lookAt(npc.actFace.x, npc.mesh.position.y, npc.actFace.z); npc.faced = true; }
+                const w = npc.actWork;
+                if (w === 'fishing') {
+                    npc.mesh.rotation.x *= 0.85;
+                    u.rightArmPivot.rotation.x = -0.7 + Math.sin(elapsed * 2 + idx) * 0.12;
+                    u.leftArmPivot.rotation.x *= 0.85;
+                } else if (w === 'gardening' || w === 'foraging') {
+                    npc.mesh.rotation.x += (0.18 - npc.mesh.rotation.x) * 0.1;
+                    u.leftArmPivot.rotation.x = -0.55 + Math.sin(elapsed * 3 + idx) * 0.15;
+                    u.rightArmPivot.rotation.x = -0.55 - Math.sin(elapsed * 3 + idx) * 0.15;
+                } else if (w === 'cooking') {
+                    npc.mesh.rotation.x *= 0.85;
+                    u.rightArmPivot.rotation.x = -Math.PI * 0.4 + Math.sin(elapsed * 4 + idx) * 0.25;
+                    u.rightArmPivot.rotation.y = Math.cos(elapsed * 4 + idx) * 0.25;
+                    u.leftArmPivot.rotation.x *= 0.85;
+                }
+                if (now > npc.nextBubble) {
+                    const lines = NPC_WORK_LINES[w] || npc.chats;
+                    showCharacterBubble(npc.ui, lines[Math.floor(Math.random() * lines.length)]);
+                    npc.nextBubble = now + 15000 + Math.random() * 12000;
+                }
+                if (now > npc.actUntil) npcPickNext(npc);
+                return;
+            }
+            updateWalkCycle(npc.mesh, false, dt);
+            u.leftArmPivot.rotation.x *= 0.85; u.rightArmPivot.rotation.x *= 0.85;
+            npc.mesh.rotation.x *= 0.85;
+            if (now > npc.nextBubble && Math.random() < 0.4) {
+                showCharacterBubble(npc.ui, npc.chats[Math.floor(Math.random() * npc.chats.length)]);
+                npc.nextBubble = now + 16000;
+            }
+            if (now > npc.actUntil) npcPickNext(npc);
+        }
+
+        // ===== PULAU DAGANG: pulau kecil di timur, dicapai dengan berenang =====
+        const ISLET = { x: 48, z: -10, landR: 8.5 };
+        let isletFound = false;
+        (function buildTraderIslet() {
+            const isletSand = new THREE.Mesh(
+                new THREE.CylinderGeometry(7, 8.5, 2, 28),
+                new THREE.MeshLambertMaterial({ color: 0xfde68a, flatShading: true }));
+            isletSand.position.set(ISLET.x, -0.3, ISLET.z);
+            isletSand.receiveShadow = true;
+            scene.add(isletSand);
+            const isletGrass = new THREE.Mesh(
+                new THREE.CylinderGeometry(5, 6.5, 1.6, 28),
+                new THREE.MeshLambertMaterial({ color: 0x34d399, flatShading: true }));
+            isletGrass.position.set(ISLET.x, 0.2, ISLET.z);
+            isletGrass.receiveShadow = true;
+            scene.add(isletGrass);
+            // Pohon palem hias (tanpa panjat, tanpa collider)
+            const palmTrunk = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.14, 0.22, 2.8, 6),
+                new THREE.MeshLambertMaterial({ color: 0x92400e, flatShading: true }));
+            palmTrunk.position.set(51.5, 2.4, -13);
+            palmTrunk.rotation.z = 0.12;
+            scene.add(palmTrunk);
+            for (let li = 0; li < 5; li++) {
+                const leaf = new THREE.Mesh(
+                    new THREE.BoxGeometry(1.7, 0.08, 0.42),
+                    new THREE.MeshLambertMaterial({ color: 0x16a34a, flatShading: true }));
+                const a = (li / 5) * Math.PI * 2;
+                leaf.position.set(51.5 + Math.cos(a) * 0.8 + 0.3, 3.85, -13 + Math.sin(a) * 0.8);
+                leaf.rotation.y = -a;
+                leaf.rotation.z = -0.45;
+                scene.add(leaf);
+            }
+            // Los / warung Pak Dagang
+            const stallMat = new THREE.MeshLambertMaterial({ color: 0x78350f, flatShading: true });
+            const counterMat = new THREE.MeshLambertMaterial({ color: 0x92400e, flatShading: true });
+            [[46.7, -12.7], [49.3, -12.7], [46.7, -10.9], [49.3, -10.9]].forEach(function (pp) {
+                const post = new THREE.Mesh(new THREE.BoxGeometry(0.14, 2.2, 0.14), stallMat);
+                post.position.set(pp[0], 2.1, pp[1]);
+                scene.add(post);
+            });
+            const counter = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.8, 0.7), counterMat);
+            counter.position.set(48, 1.5, -10.9);
+            scene.add(counter);
+            const roof = new THREE.Mesh(
+                new THREE.BoxGeometry(3.4, 0.12, 2.4),
+                new THREE.MeshLambertMaterial({ color: 0xd97706, flatShading: true }));
+            roof.position.set(48, 3.35, -11.8);
+            roof.rotation.x = 0.1;
+            scene.add(roof);
+            [[46.6, -11.2, 0.6], [47.3, -12.6, 0.55]].forEach(function (c) {
+                const crate = new THREE.Mesh(new THREE.BoxGeometry(c[2], c[2], c[2]), counterMat);
+                crate.position.set(c[0], 1.0 + c[2] / 2, c[1]);
+                scene.add(crate);
+            });
+            const barrel = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.35, 0.4, 0.8, 10), stallMat);
+            barrel.position.set(49.6, 1.4, -12.4);
+            scene.add(barrel);
+            const lantern = new THREE.Mesh(
+                new THREE.BoxGeometry(0.25, 0.25, 0.25),
+                new THREE.MeshBasicMaterial({ color: 0xfbbf24 }));
+            lantern.position.set(49.3, 2.9, -11.8);
+            scene.add(lantern);
+        })();
+        const traderMesh = createCharacterMesh(0xf97316, 0x78350f);
+        traderMesh.position.set(48, 1.0, -8.6);
+        traderMesh.lookAt(44, 1.0, -8.6);
+        scene.add(traderMesh);
+        const traderLabel = createLabelUI('🏪 Pak Dagang', 'bg-amber-400');
+        interactables.push({
+            type: 'trader',
+            position: new THREE.Vector3(48, 1.0, -8.6),
+            radius: 3.5,
+            icon: '🏪',
+            prompt: 'Jual & Beli di Toko Pulau (E)'
         });
 
         // --- Anjing peliharaan: Brownie, mengikuti pemain kemanapun ---
@@ -2338,10 +2710,21 @@
             interactables.push({ type: 'wildsayur', position: new THREE.Vector3(p[0], 1.0, p[1]), radius: 2.5, icon: '🥬', prompt: 'Petik ' + veg.name + ' Liar (E)', wild: rec, veg: veg });
         });
 
+        function gardenGrowTime() {
+            let t = GARDEN_TIME;
+            if (playerState.upgrades.hoe) t *= 0.75;
+            const fl = (playerState.skills.farming && playerState.skills.farming.level) || 1;
+            t *= Math.max(0.8, 1 - 0.05 * (fl - 1));
+            return t;
+        }
+        function gardenBoost(i) {
+            const g = playerState.garden[i];
+            return (g && g.boost) || 0;
+        }
         function gardenState(i) {
             const g = playerState.garden[i];
             if (!g) return 'empty';
-            return (Date.now() - g.plantedAt >= GARDEN_TIME) ? 'ready' : 'growing';
+            return (Date.now() - g.plantedAt >= gardenGrowTime() - gardenBoost(i)) ? 'ready' : 'growing';
         }
         function updateGardenVisuals(elapsedSec) {
             const swayT = (typeof elapsedSec === 'number') ? elapsedSec : (Date.now() / 1000);
@@ -2351,7 +2734,7 @@
                 const veg = st === 'empty' ? VEG_TYPES[0] : vegById(playerState.garden[i].veg);
                 const sway = Math.sin(swayT * 2 + i * 1.7);
                 if (st === 'growing') {
-                    const k = Math.min(1, (Date.now() - playerState.garden[i].plantedAt) / GARDEN_TIME);
+                    const k = Math.min(1, (Date.now() - playerState.garden[i].plantedAt) / Math.max(1000, gardenGrowTime() - gardenBoost(i)));
                     p.sprout.scale.setScalar(0.25 + k * 0.75); // kecambah membesar pelan-pelan selama 3 menit
                     p.sprout.rotation.z = sway * 0.08 * (0.3 + k); // bergoyang kena angin, makin kentara saat membesar
                     p.sprout.position.x = p.x + sway * 0.05 * (0.3 + k);
@@ -2371,13 +2754,27 @@
             if (st === 'ready') {
                 const vegName = vegById(playerState.garden[i].veg).name;
                 playerState.garden[i] = null;
-                playerState.inventory.sayur += 3;
+                playerState.inventory.sayur += 3 + (playerState.upgrades.hoe ? 1 : 0);
                 addSkillXP('foraging', 20);
+                addSkillXP('farming', 20);
                 showToast('🌱', 'Panen! +3 ' + vegName + ' 🥬');
                 updateHUD(); updateGardenVisuals(); saveGame(true);
             } else if (st === 'growing') {
-                const left = Math.max(1, Math.ceil((GARDEN_TIME - (Date.now() - playerState.garden[i].plantedAt)) / 60000));
-                showToast('⏳', 'Masih tumbuh... panen dalam ~' + left + ' menit');
+                if ((playerState.inventory.pupuk || 0) > 0) {
+                    playerState.inventory.pupuk -= 1;
+                    const g = playerState.garden[i];
+                    g.boost = Math.min(gardenGrowTime(), (g.boost || 0) + GARDEN_TIME * 0.5);
+                    addSkillXP('farming', 10);
+                    updateHUD(); updateGardenVisuals(); saveGame(true);
+                    if (gardenState(i) === 'ready') showToast('🌿', 'Pupuk bekerja! Tanaman SIAP PANEN! 🌱✨');
+                    else {
+                        const left = Math.max(1, Math.ceil((gardenGrowTime() - gardenBoost(i) - (Date.now() - g.plantedAt)) / 60000));
+                        showToast('🌿', 'Pupuk diberikan! Panen dalam ~' + left + ' menit');
+                    }
+                    return;
+                }
+                const left = Math.max(1, Math.ceil((gardenGrowTime() - gardenBoost(i) - (Date.now() - playerState.garden[i].plantedAt)) / 60000));
+                showToast('⏳', 'Masih tumbuh... panen dalam ~' + left + ' menit (beri 🌿 pupuk untuk mempercepat)');
             } else {
                 if ((playerState.inventory.sayur || 0) <= 0) {
                     showToast('🌱', 'Butuh 1🥬 untuk menanam (cari sayur liar di pulau!)');
@@ -2385,7 +2782,8 @@
                 }
                 playerState.inventory.sayur -= 1;
                 const vegNew = VEG_TYPES[Math.floor(Math.random() * VEG_TYPES.length)];
-                playerState.garden[i] = { plantedAt: Date.now(), veg: vegNew.id };
+                playerState.garden[i] = { plantedAt: Date.now(), veg: vegNew.id, boost: 0 };
+                addSkillXP('farming', 15);
                 showToast('🌱', vegNew.name + ' ditanam! Panen dalam 3 menit');
                 updateHUD(); updateGardenVisuals(); saveGame(true);
             }
@@ -2832,7 +3230,7 @@
             // Modal terbuka = fokus ke modal, tombol game diabaikan (Esc menutup)
             if (anyModalOpen()) {
                 if (e.key === 'Escape') {
-                    ['github-modal', 'recipe-modal', 'mission-modal', 'shop-modal'].forEach(closeModal);
+                    ['github-modal', 'recipe-modal', 'mission-modal', 'shop-modal', 'trader-modal'].forEach(closeModal);
                 }
                 return;
             }
@@ -3277,6 +3675,12 @@
                 }, waitMs);
             }
 
+            else if (activeTarget.type === 'trader') {
+                renderTrader();
+                openModal('trader-modal');
+                showCharacterBubble(traderLabel, 'Selamat datang di Toko Pulau Dagang! Jual hasil olahanmu di sini! 🏪');
+            }
+
             else if (activeTarget.type === 'campfire') {
                 renderRecipes();
                 openModal('recipe-modal');
@@ -3524,7 +3928,9 @@
             pos.y += heightOffset;
             pos.project(camera);
 
-            if (pos.z > 1) {
+            const x = (pos.x * 0.5 + 0.5) * window.innerWidth;
+            const y = (-(pos.y * 0.5) + 0.5) * window.innerHeight;
+            if (pos.z > 1 || x < -60 || x > window.innerWidth + 60 || y < -60 || y > window.innerHeight + 60) {
                 uiObj.wrapper.style.display = 'none';
                 return;
             }
@@ -3532,8 +3938,6 @@
             // Label memudar saat jauh agar tidak menutupi pemandangan
             const dist = mesh.position.distanceTo(camera.position);
             uiObj.wrapper.style.opacity = dist > 30 ? '0' : dist > 17 ? (1 - (dist - 17) / 13 * 0.8).toFixed(2) : '1';
-            const x = (pos.x * 0.5 + 0.5) * window.innerWidth;
-            const y = (-(pos.y * 0.5) + 0.5) * window.innerHeight;
             uiObj.wrapper.style.transform = `translate(-50%, -100%) translate(${x}px, ${y}px)`;
         }
 
@@ -3710,9 +4114,10 @@
 
                     const distCenter = Math.hypot(nextX, nextZ);
                     const onDock = Math.abs(nextX) < 1.5 && nextZ >= 31 && nextZ <= 40.5;
-                    const inWater = distCenter >= 32.5 && !onDock;
+                    const dIslet = Math.hypot(nextX - ISLET.x, nextZ - ISLET.z);
+                    const inWater = distCenter >= 32.5 && !onDock && dIslet >= ISLET.landR;
 
-                    if (!blockedByTree && !isSleeping && (distCenter < 55 || onDock)) {
+                    if (!blockedByTree && !isSleeping && (distCenter < 55 || onDock || dIslet < ISLET.landR)) {
                         playerMesh.position.x = nextX;
                         playerMesh.position.z = nextZ;
                         isSwimming = inWater;
@@ -3795,6 +4200,12 @@
                     playerMesh.scale.set(1, 1, 1);
                 }
             })();
+            const dIsletNow = Math.hypot(playerMesh.position.x - ISLET.x, playerMesh.position.z - ISLET.z);
+            if (!isletFound && dIsletNow < ISLET.landR) {
+                isletFound = true;
+                showToast('🏝️', 'Pulau Dagang ditemukan! Jual hasil olahan di Toko Pak Dagang 🏪');
+                playSFX('success');
+            }
             // Berenang telungkup: badan rebah menghadap ke depan (bukan berdiri),
             // tangan mendayung gaya bebas, kaki menendang, kepala tetap di atas air
             if (isSwimming) {
@@ -3932,7 +4343,7 @@
                     npc.mesh.userData.leftArmPivot.rotation.z = -0.9 + Math.sin(elapsed * 10 + idx * 2) * 0.4;
                     npc.mesh.userData.rightArmPivot.rotation.z = 0.9 - Math.sin(elapsed * 10 + idx * 2) * 0.4;
                 }
-                updateWalkCycle(npc.mesh, false, dt);
+                updateNPCActivity(npc, idx, dt, elapsed, isDancingNow);
                 updateSparkle(npc.mesh, elapsed);
                 updateLabelPosition(npc.mesh, npc.ui);
             });
@@ -3972,6 +4383,7 @@
                 updateLabelPosition(v.mesh, v.ui);
             });
 
+            updateLabelPosition(traderMesh, traderLabel);
             updateLabelPosition(playerMesh, playerLabel);
             updateLabelPosition(dogGroup, dogLabel, 1.3);
             renderer.render(scene, camera);
