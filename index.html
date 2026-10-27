@@ -202,6 +202,26 @@
                     <span>🌿</span>
                     <span id="inv-pupuk" class="font-bold text-sm text-lime-300">0</span>
                 </div>
+                <div class="flex items-center gap-1.5 px-2.5 py-1 bg-slate-800/80 rounded-xl border border-slate-700" title="Cacing (umpan mancing)">
+                    <span>🪱</span>
+                    <span id="inv-worm" class="font-bold text-sm text-amber-200">0</span>
+                </div>
+                <div class="flex items-center gap-1.5 px-2.5 py-1 bg-slate-800/80 rounded-xl border border-slate-700" title="Udang">
+                    <span>🦐</span>
+                    <span id="inv-shrimp" class="font-bold text-sm text-orange-300">0</span>
+                </div>
+                <div class="flex items-center gap-1.5 px-2.5 py-1 bg-slate-800/80 rounded-xl border border-slate-700" title="Cumi">
+                    <span>🦑</span>
+                    <span id="inv-squid" class="font-bold text-sm text-violet-300">0</span>
+                </div>
+                <div class="flex items-center gap-1.5 px-2.5 py-1 bg-slate-800/80 rounded-xl border border-slate-700" title="Gurita">
+                    <span>🐙</span>
+                    <span id="inv-octopus" class="font-bold text-sm text-fuchsia-300">0</span>
+                </div>
+                <div class="flex items-center gap-1.5 px-2.5 py-1 bg-slate-800/80 rounded-xl border border-slate-700" title="Garam">
+                    <span>🧂</span>
+                    <span id="inv-salt" class="font-bold text-sm text-slate-200">0</span>
+                </div>
                 <button id="btn-mission-modal" class="bg-amber-400 hover:bg-amber-300 active:scale-95 text-slate-950 font-bold text-xs px-3 py-2 rounded-xl transition flex items-center gap-1.5 shadow-lg shadow-amber-400/20">
                     <span>📋</span> <span class="hidden sm:inline">Misi</span>
                 </button>
@@ -574,7 +594,12 @@
                 crab: 0,
                 sayur: 0,
                 shell: 0,
-                pupuk: 0
+                pupuk: 0,
+                worm: 0,
+                shrimp: 0,
+                squid: 0,
+                octopus: 0,
+                salt: 0
             },
             energy: 100,
             emergencyAt: 0, // timestamp terakhir ambil makanan darurat (cooldown 10 menit)
@@ -596,6 +621,20 @@
                 gain.connect(sfxCtx.destination);
 
                 const now = sfxCtx.currentTime;
+                if (type === 'chirp') {
+                    [1800, 2300, 2900].forEach(function (fq, i) {
+                        const o2 = sfxCtx.createOscillator(), g2 = sfxCtx.createGain();
+                        o2.connect(g2); g2.connect(sfxCtx.destination);
+                        o2.type = 'sine';
+                        const t0 = now + i * 0.09;
+                        o2.frequency.setValueAtTime(fq, t0);
+                        o2.frequency.exponentialRampToValueAtTime(fq + 500, t0 + 0.07);
+                        g2.gain.setValueAtTime(0.18, t0);
+                        g2.gain.linearRampToValueAtTime(0.01, t0 + 0.08);
+                        o2.start(t0); o2.stop(t0 + 0.09);
+                    });
+                    return;
+                }
                 if (type === 'splash') {
                     osc.type = 'sine';
                     osc.frequency.setValueAtTime(320, now);
@@ -735,6 +774,11 @@
             document.getElementById('inv-sayur').textContent = playerState.inventory.sayur;
             document.getElementById('inv-shell').textContent = playerState.inventory.shell || 0;
             document.getElementById('inv-pupuk').textContent = playerState.inventory.pupuk || 0;
+            document.getElementById('inv-worm').textContent = playerState.inventory.worm || 0;
+            document.getElementById('inv-shrimp').textContent = playerState.inventory.shrimp || 0;
+            document.getElementById('inv-squid').textContent = playerState.inventory.squid || 0;
+            document.getElementById('inv-octopus').textContent = playerState.inventory.octopus || 0;
+            document.getElementById('inv-salt').textContent = playerState.inventory.salt || 0;
 
             document.getElementById('bar-energy').style.width = playerState.energy + '%';
             document.getElementById('txt-energy').textContent = Math.round(playerState.energy);
@@ -754,6 +798,11 @@
             { id:'kepiting_bakar', name:'Kepiting Bakar', icon:'🦀', need:{crab:1}, give:1, xp:40, minLevel:2 },
             { id:'tumis_sayur', name:'Tumis Sayur', icon:'🥬', need:{sayur:1}, give:1, xp:35, minLevel:1 },
             { id:'ikan_saus', name:'Ikan Saus Pulau', icon:'🐠', need:{fish:1, sayur:1}, give:1, xp:60, minLevel:1, requiresStove:true },
+            { id:'udang_bakar', name:'Udang Bakar', icon:'🦐', need:{shrimp:1, salt:1}, give:1, xp:45, minLevel:1 },
+            { id:'cumi_goreng', name:'Cumi Goreng', icon:'🦑', need:{squid:1, salt:1}, give:1, xp:50, minLevel:2 },
+            { id:'gurita_bakar', name:'Gurita Bakar', icon:'🐙', need:{octopus:1, salt:1}, give:2, xp:90, minLevel:3 },
+            { id:'sup_seafood', name:'Sup Seafood', icon:'🍜', need:{fish:1, shrimp:1, salt:1}, give:2, xp:100, minLevel:4 },
+            { id:'pepes_cumi', name:'Pepes Cumi', icon:'🦑', need:{squid:1, sayur:1, coconut:1}, give:2, xp:75, minLevel:3 },
         ];
         const MISSION_DEFS = [
             { id:'fish2',  icon:'🎣', text:'Tangkap 2 ikan',            target:2,  skill:'fishing',  xp:50 },
@@ -855,11 +904,11 @@
                 return;
             }
             playerState.inventory.dish -= 1;
-            playerState.energy = Math.min(100, playerState.energy + 35);
+            playerState.energy = Math.min(100, playerState.energy + 40);
             eatAnimT0 = Date.now(); eatProp.visible = true;
             playSFX('success');
             showCharacterBubble(playerLabel, 'Nyam nyam! Energi pulih ⚡✨');
-            showToast('🍲', 'Makan hidangan: +35 Energi ⚡');
+            showToast('🍲', 'Makan hidangan: +40 Energi ⚡');
             updateHUD();
             saveGame(true);
         }
@@ -978,6 +1027,10 @@
             if (r.need.coconut) parts.push(r.need.coconut + '🥥');
             if (r.need.crab) parts.push(r.need.crab + '🦀');
             if (r.need.sayur) parts.push(r.need.sayur + '🥬');
+            if (r.need.shrimp) parts.push(r.need.shrimp + '🦐');
+            if (r.need.squid) parts.push(r.need.squid + '🦑');
+            if (r.need.octopus) parts.push(r.need.octopus + '🐙');
+            if (r.need.salt) parts.push(r.need.salt + '🧂');
             return parts.join(' + ');
         }
         function canCook(r) {
@@ -1106,7 +1159,11 @@
             { key:'fish', icon:'🐟', name:'Ikan Mentah', base:2, desc:'Hasil tangkapan' },
             { key:'crab', icon:'🦀', name:'Kepiting', base:3, desc:'Hasil tangkapan pantai' },
             { key:'coconut', icon:'🥥', name:'Buah Kelapa', base:1, desc:'Hasil panjat pohon' },
-            { key:'sayur', icon:'🥬', name:'Sayur', base:1, desc:'Hasil kebun & liar' }
+            { key:'sayur', icon:'🥬', name:'Sayur', base:1, desc:'Hasil kebun & liar' },
+            { key:'shrimp', icon:'🦐', name:'Udang', base:3, desc:'Hasil tangkapan laut' },
+            { key:'squid', icon:'🦑', name:'Cumi', base:4, desc:'Hasil tangkapan laut' },
+            { key:'octopus', icon:'🐙', name:'Gurita', base:6, desc:'Hasil tangkapan laut' },
+            { key:'salt', icon:'🧂', name:'Garam', base:1, desc:'Hasil panen batu garam' }
         ];
         const TRADER_BUY = [
             { id:'pupuk', icon:'🌿', name:'Pupuk Organik', cost:6, desc:'Dipakai otomatis saat menanam: mulai 50% tumbuh (juga bisa untuk petak yang sedang tumbuh)', once:false },
@@ -2723,6 +2780,178 @@
             const g = playerState.garden[i];
             return (g && g.boost) || 0;
         }
+        // ===== BAHAN MASAK BARU: garam, cacing (umpan), udang, cumi, gurita =====
+        function pickSalt(item) {
+            const rec = item.saltRec;
+            if (rec.taken) return;
+            rec.taken = true;
+            rec.mesh.visible = false;
+            playerState.inventory.salt = (playerState.inventory.salt || 0) + 1;
+            addSkillXP('foraging', 10);
+            showToast('🧂', 'Dapat +1 Garam! (bumbu masakan seafood)');
+            updateHUD();
+            setTimeout(function () { rec.taken = false; rec.mesh.visible = true; }, 60000);
+        }
+        function digWorm(item) {
+            const rec = item.wormRec;
+            if (rec.taken) return;
+            rec.taken = true;
+            rec.mesh.visible = false;
+            playerState.inventory.worm = (playerState.inventory.worm || 0) + 2;
+            showToast('🪱', 'Dapat +2 Cacing! (umpan mancing)');
+            updateHUD();
+            setTimeout(function () { rec.taken = false; rec.mesh.visible = true; }, 45000);
+        }
+        // Batu garam: kristal putih di atas batu karang (tumbuh lagi 60 detik)
+        [[-18, 20], [20, -6], [-4, -24]].forEach(function (sp) {
+            const rock = new THREE.Group();
+            const base = new THREE.Mesh(new THREE.DodecahedronGeometry(0.45, 0),
+                new THREE.MeshLambertMaterial({ color: 0x94a3b8, flatShading: true }));
+            base.position.y = 0.25; rock.add(base);
+            [[0, 0.62, 0], [-0.25, 0.5, 0.15], [0.25, 0.52, -0.12]].forEach(function (o) {
+                const crys = new THREE.Mesh(new THREE.OctahedronGeometry(0.2, 0),
+                    new THREE.MeshLambertMaterial({ color: 0xf8fafc, flatShading: true }));
+                crys.position.set(o[0], o[1], o[2]); rock.add(crys);
+            });
+            rock.position.set(sp[0], 1.0, sp[1]);
+            scene.add(rock);
+            const rec = { mesh: rock, taken: false };
+            interactables.push({ type: 'salt', position: new THREE.Vector3(sp[0], 1.0, sp[1]), radius: 2.5, icon: '🧂', prompt: 'Panen Garam (E)', saltRec: rec });
+        });
+        // Gundukan tanah: gali cacing untuk umpan (tumbuh lagi 45 detik)
+        [[5, -8], [-12, -6], [10, 18]].forEach(function (sp) {
+            const mound = new THREE.Group();
+            const dirt = new THREE.Mesh(new THREE.SphereGeometry(0.5, 10, 8),
+                new THREE.MeshLambertMaterial({ color: 0x78350f, flatShading: true }));
+            dirt.scale.set(1, 0.45, 1); dirt.position.y = 0.2; mound.add(dirt);
+            const wormTip = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 8),
+                new THREE.MeshLambertMaterial({ color: 0xfda4af }));
+            wormTip.position.set(0.15, 0.45, 0.1); mound.add(wormTip);
+            mound.position.set(sp[0], 1.0, sp[1]);
+            scene.add(mound);
+            const rec = { mesh: mound, taken: false };
+            interactables.push({ type: 'worm', position: new THREE.Vector3(sp[0], 1.0, sp[1]), radius: 2.5, icon: '🪱', prompt: 'Gali Cacing (E)', wormRec: rec });
+        });
+        // Hewan laut: berkeliaran di pesisir & air dangkal, tangkap dengan E
+        const SEA_DEFS = {
+            shrimp: { icon: '🦐', name: 'Udang', color: 0xf472b6, count: 3, speed: 1.3, rMin: 26, rMax: 32, y: 0.8, respawn: 40000 },
+            squid: { icon: '🦑', name: 'Cumi', color: 0xa78bfa, count: 2, speed: 1.7, rMin: 30, rMax: 35, y: 0.3, respawn: 50000 },
+            octopus: { icon: '🐙', name: 'Gurita', color: 0xc084fc, count: 1, speed: 0.9, rMin: 22, rMax: 29, y: 0.8, respawn: 60000 }
+        };
+        function createSeaCreatureMesh(kind) {
+            const g = new THREE.Group();
+            const mat = new THREE.MeshLambertMaterial({ color: SEA_DEFS[kind].color, flatShading: true });
+            if (kind === 'shrimp') {
+                const body = new THREE.Mesh(new THREE.SphereGeometry(0.28, 10, 8), mat);
+                body.scale.set(1.3, 0.75, 0.75); body.position.y = 0.3; g.add(body);
+                const tail = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.32, 6), mat);
+                tail.position.set(0, 0.3, -0.42); tail.rotation.x = -Math.PI / 2; g.add(tail);
+                [-0.1, 0.1].forEach(function (ex) {
+                    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.05, 6, 6), new THREE.MeshBasicMaterial({ color: 0x0f172a }));
+                    eye.position.set(ex, 0.42, 0.28); g.add(eye);
+                });
+            } else if (kind === 'squid') {
+                const mantle = new THREE.Mesh(new THREE.ConeGeometry(0.3, 0.85, 8), mat);
+                mantle.position.y = 0.62; g.add(mantle);
+                const head = new THREE.Mesh(new THREE.SphereGeometry(0.22, 8, 8), mat);
+                head.position.y = 0.22; g.add(head);
+                for (let ti = 0; ti < 4; ti++) {
+                    const a = (ti / 4) * Math.PI * 2;
+                    const tent = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.03, 0.42, 5), mat);
+                    tent.position.set(Math.cos(a) * 0.14, -0.02, Math.sin(a) * 0.14);
+                    tent.rotation.z = Math.cos(a) * 0.3; tent.rotation.x = -Math.sin(a) * 0.3;
+                    g.add(tent);
+                }
+                [-0.1, 0.1].forEach(function (ex) {
+                    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 6), new THREE.MeshBasicMaterial({ color: 0x0f172a }));
+                    eye.position.set(ex, 0.28, 0.2); g.add(eye);
+                });
+            } else {
+                const head = new THREE.Mesh(new THREE.SphereGeometry(0.45, 10, 8), mat);
+                head.position.y = 0.55; g.add(head);
+                for (let ti = 0; ti < 6; ti++) {
+                    const a = (ti / 6) * Math.PI * 2;
+                    const tent = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.05, 0.55, 5), mat);
+                    tent.position.set(Math.cos(a) * 0.32, 0.25, Math.sin(a) * 0.32);
+                    tent.rotation.z = Math.cos(a) * 0.55; tent.rotation.x = -Math.sin(a) * 0.55;
+                    g.add(tent);
+                }
+                [-0.16, 0.16].forEach(function (ex) {
+                    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.07, 6, 6), new THREE.MeshBasicMaterial({ color: 0x0f172a }));
+                    eye.position.set(ex, 0.62, 0.4); g.add(eye);
+                });
+            }
+            g.traverse(function (o) { if (o.isMesh) o.castShadow = true; });
+            return g;
+        }
+        const seaCreatures = [];
+        function spawnSeaCreature(rec) {
+            const def = rec.def;
+            const ang = Math.random() * Math.PI * 2;
+            const rad = def.rMin + Math.random() * (def.rMax - def.rMin);
+            rec.mesh.position.set(Math.cos(ang) * rad, def.y, Math.sin(ang) * rad);
+            rec.mesh.visible = true;
+            rec.taken = false;
+            rec.retarget = 0;
+            pickSeaTarget(rec);
+        }
+        function pickSeaTarget(rec) {
+            const def = rec.def;
+            const ang = Math.random() * Math.PI * 2;
+            const rad = def.rMin + Math.random() * (def.rMax - def.rMin);
+            rec.tx = Math.cos(ang) * rad;
+            rec.tz = Math.sin(ang) * rad;
+            rec.retarget = 3 + Math.random() * 4;
+        }
+        function updateSeaCreatures(dt, elapsed) {
+            for (const rec of seaCreatures) {
+                if (rec.taken) {
+                    if (Date.now() >= rec.respawnAt) {
+                        spawnSeaCreature(rec);
+                        if (rec.interactable) rec.interactable.disabled = false;
+                    }
+                    continue;
+                }
+                const m = rec.mesh, def = rec.def;
+                rec.retarget -= dt;
+                if (rec.retarget <= 0) pickSeaTarget(rec);
+                const dx = rec.tx - m.position.x, dz = rec.tz - m.position.z;
+                const d = Math.hypot(dx, dz);
+                if (d > 0.2) {
+                    m.position.x += (dx / d) * def.speed * dt;
+                    m.position.z += (dz / d) * def.speed * dt;
+                    m.rotation.y = Math.atan2(dx, dz);
+                }
+                m.position.y = def.y + Math.sin(elapsed * 2 + rec.phase) * 0.08;
+            }
+        }
+        function catchSeaCreature(item) {
+            const rec = item.creature;
+            if (!rec || rec.taken) return;
+            rec.taken = true;
+            rec.mesh.visible = false;
+            if (item) item.disabled = true;
+            rec.respawnAt = Date.now() + rec.def.respawn;
+            playerState.inventory[rec.kind] = (playerState.inventory[rec.kind] || 0) + 1;
+            addSkillXP('fishing', 15);
+            playSFX('splash');
+            showCharacterBubble(playerLabel, 'Dapat ' + rec.def.name + '! ' + rec.def.icon + '✨');
+            showToast(rec.def.icon, '+1 ' + rec.def.name + ' & +15 XP Mancing!');
+            updateHUD(); saveGame(true);
+        }
+        Object.keys(SEA_DEFS).forEach(function (kind) {
+            const def = SEA_DEFS[kind];
+            for (let ci = 0; ci < def.count; ci++) {
+                const mesh = createSeaCreatureMesh(kind);
+                scene.add(mesh);
+                const rec = { kind: kind, def: def, mesh: mesh, tx: 0, tz: 0, retarget: 0, taken: false, respawnAt: 0, phase: Math.random() * Math.PI * 2, interactable: null };
+                spawnSeaCreature(rec);
+                rec.interactable = { type: 'seacatch', position: mesh.position, radius: 2.6, icon: def.icon, prompt: 'Tangkap ' + def.name + ' (E)', creature: rec };
+                interactables.push(rec.interactable);
+                seaCreatures.push(rec);
+            }
+        });
+
         function gardenState(i) {
             const g = playerState.garden[i];
             if (!g) return 'empty';
@@ -3411,17 +3640,41 @@
             fishingGame.cursorDir = 1;
             // Semakin tinggi level fishing, zona hijau semakin lebar
             const bonusWidth = Math.min(18, (playerState.skills.fishing.level - 1) * 4);
-            fishingGame.targetWidth = 24 + bonusWidth + (playerState.upgrades.rod ? 8 : 0);
+            // Undian tangkapan: jenis & ukuran menentukan kecepatan kursor dan lebar zona
+            let catchKind = 'fish', catchSize = '', speedMult = 1, zoneMult = 1, catchXP = 35, catchCount = 1, catchKey = 'fish';
+            if (fishingGame.gold) {
+                catchKind = 'gold'; catchSize = ''; speedMult = 1.35; catchXP = 60; catchCount = 3;
+            } else {
+                const roll = Math.random();
+                if (roll < 0.10) { catchKind = 'octopus'; catchKey = 'octopus'; speedMult = 1.6; zoneMult = 0.7; catchXP = 70; }
+                else if (roll < 0.24) { catchKind = 'squid'; catchKey = 'squid'; speedMult = 1.45; zoneMult = 0.8; catchXP = 55; }
+                else if (roll < 0.44) { catchKind = 'shrimp'; catchKey = 'shrimp'; speedMult = 1.3; zoneMult = 0.85; catchXP = 45; catchCount = 2; }
+                else {
+                    catchSize = 'kecil';
+                    const sr = Math.random();
+                    if (sr < 0.10) { catchSize = 'RAKSASA'; speedMult = 1.55; zoneMult = 0.7; catchXP = 80; catchCount = 3; }
+                    else if (sr < 0.40) { catchSize = 'BESAR'; speedMult = 1.3; zoneMult = 0.85; catchXP = 50; catchCount = 2; }
+                }
+            }
+            fishingGame.catchKind = catchKind;
+            fishingGame.catchSize = catchSize;
+            fishingGame.catchXP = catchXP;
+            fishingGame.catchCount = catchCount;
+            fishingGame.catchKey = catchKey;
+            fishingGame.targetWidth = Math.max(12, (24 + bonusWidth + (playerState.upgrades.rod ? 8 : 0)) * zoneMult);
             fishingGame.targetStart = 20 + Math.random() * (65 - fishingGame.targetWidth);
-            fishingGame.speed = (1.35 + Math.random() * 0.45) * (fishingGame.gold ? 1.35 : 1);
+            fishingGame.speed = (1.35 + Math.random() * 0.45) * speedMult;
+            fishingGame.maxSpeed = fishingGame.speed * 1.9;
+            fishingGame.minWidth = fishingGame.targetWidth * 0.6;
 
             const targetZoneEl = document.getElementById('fish-target-zone');
+            fishingGame.zoneEl = targetZoneEl;
             targetZoneEl.style.left = `${fishingGame.targetStart}%`;
             targetZoneEl.style.width = `${fishingGame.targetWidth}%`;
 
             document.getElementById('fishing-minigame').classList.remove('hidden');
             playSFX('splash');
-            showCharacterBubble(playerLabel, '❗ Ada yang nyangkut! Tarik sekarang!');
+            showCharacterBubble(playerLabel, speedMult >= 1.45 ? '❗ TARIKAN KUAT! Kursor makin cepat, jangan sampai lepas! 💪' : '❗ Ada yang nyangkut! Tarik sekarang!');
         }
 
         function resolveFishingPull() {
@@ -3442,13 +3695,19 @@
 
             const isGold = !!fishingGame.gold;
             fishingGame.gold = false;
+            const catchKind = fishingGame.catchKind || (isGold ? 'gold' : 'fish');
+            const catchCount = fishingGame.catchCount || (isGold ? 3 : 1);
+            const catchXP = fishingGame.catchXP || (isGold ? 60 : 35);
+            const catchKey = fishingGame.catchKey || 'fish';
+            const catchSize = fishingGame.catchSize || '';
+            const kindColor = { gold: 0xfbbf24, fish: 0x38bdf8, shrimp: 0xf472b6, squid: 0xa78bfa, octopus: 0xc084fc }[catchKind] || 0x38bdf8;
             if (hitSuccess) {
                 playSFX('success');
                 // Luncurkan objek Ikan 3D secara parabolik dari air menuju pemain!
                 const fishMesh = new THREE.Group();
                 const fishBody = new THREE.Mesh(
                     new THREE.ConeGeometry(0.22, 0.65, 8),
-                    new THREE.MeshLambertMaterial({ color: isGold ? 0xfbbf24 : 0x38bdf8, flatShading: true })
+                    new THREE.MeshLambertMaterial({ color: kindColor, flatShading: true })
                 );
                 fishBody.rotation.z = Math.PI / 2;
                 fishMesh.add(fishBody);
@@ -3460,18 +3719,22 @@
                     (playerMesh.position.z - 29.5) * 0.04
                 );
 
-                const goldBonus = isGold ? 3 : 1;
                 spawnPhysicsItem(fishMesh, startWater, velToPlayer, () => {
-                    playerState.inventory.fish += goldBonus;
-                    addSkillXP('fishing', isGold ? 60 : 35);
-                    bumpMission('fish2', 1);
+                    playerState.inventory[catchKey] = (playerState.inventory[catchKey] || 0) + catchCount;
+                    addSkillXP('fishing', catchXP);
+                    if (catchKey === 'fish') bumpMission('fish2', 1);
+                    playSFX('chirp');
+                    const kindNames = { gold: 'Ikan Emas', fish: 'Ikan', shrimp: 'Udang', squid: 'Cumi', octopus: 'Gurita' };
+                    const kindIcons = { gold: '🌟', fish: '🐟', shrimp: '🦐', squid: '🦑', octopus: '🐙' };
+                    const sizeTag = catchSize ? ' ' + catchSize : '';
                     if (isGold) {
-                        showCharacterBubble(playerLabel, '🌟 IKAN EMAS! Luar biasa!');
-                        showToast('🌟', 'Ikan Emas! +' + goldBonus + ' Ikan & +60 XP Mancing!');
+                        showCharacterBubble(playerLabel, '🌟 IKAN EMAS! Kicau-kicau mania! 🎉');
+                        showToast('🌟', 'Ikan Emas! +' + catchCount + ' Ikan & +' + catchXP + ' XP Mancing!');
                     } else {
-                        showCharacterBubble(playerLabel, 'Strike! Dapat Ikan Segar! 🐟✨');
-                        showToast('🐟', 'Berhasil! +1 Ikan Segar & +35 XP Mancing!');
+                        showCharacterBubble(playerLabel, 'Kicau-kicau mania! Dapat ' + kindNames[catchKind] + sizeTag + '! ' + kindIcons[catchKind] + '✨');
+                        showToast(kindIcons[catchKind], 'Berhasil! +' + catchCount + ' ' + kindNames[catchKind] + sizeTag + ' & +' + catchXP + ' XP Mancing!');
                     }
+                    updateHUD(); saveGame(true);
                 });
             } else {
                 playSFX('fail');
@@ -3493,7 +3756,7 @@
         // EKSEKUSI INTERAKSI OBJEK PULAU (Mancing, Panjat Pohon dengan Animasi Tangan, Masak, Masuk Kemah)
         function triggerInteraction() {
             if (!activeTarget || (currentActivity && currentActivity !== 'dancing' && !(isInsideTent && (activeTarget.type === 'campfire' || activeTarget.type === 'bed')))) return;
-            if (isSwimming) { showToast('🏊', 'Naik ke darat dulu untuk beraksi!'); return; }
+            if (isSwimming && activeTarget.type !== 'seacatch') { showToast('🏊', 'Naik ke darat dulu untuk beraksi!'); return; }
 
             if (activeTarget.type === 'garden') { plantOrHarvestGarden(activeTarget); return; }
             if (activeTarget.type === 'shell') { pickShell(activeTarget); return; }
@@ -3511,7 +3774,10 @@
             }
 
             if (activeTarget.type === 'fishing') {
-                if (!useEnergy(8)) return;
+                if ((playerState.inventory.worm || 0) < 1) { showToast('🪱', 'Butuh umpan cacing! Gali cacing di gundukan tanah pulau.'); return; }
+                if (!useEnergy(6)) return;
+                playerState.inventory.worm -= 1;
+                updateHUD();
                 fishingGame.gold = false;
                 setActivity('fishing_wait');
                 playerMesh.lookAt(0, playerMesh.position.y, 45);
@@ -3543,7 +3809,7 @@
             }
 
             else if (activeTarget.type === 'tree') {
-                if (!useEnergy(10)) return;
+                if (!useEnergy(8)) return;
                 setActivity('climbing');
                 const tree = activeTarget;
 
@@ -3645,6 +3911,10 @@
                 }, 40);
             }
 
+            else if (activeTarget.type === 'salt') { pickSalt(activeTarget); return; }
+            else if (activeTarget.type === 'worm') { digWorm(activeTarget); return; }
+            else if (activeTarget.type === 'seacatch') { catchSeaCreature(activeTarget); return; }
+
             else if (activeTarget.type === 'crab') {
                 const crab = activeTarget.crab;
                 if (!crab || crab.caught || !crab.mesh.visible) return;
@@ -3671,7 +3941,10 @@
             }
 
             else if (activeTarget.type === 'fishing_gold') {
-                if (!useEnergy(8)) return;
+                if ((playerState.inventory.worm || 0) < 1) { showToast('🪱', 'Butuh umpan cacing! Gali cacing di gundukan tanah pulau.'); return; }
+                if (!useEnergy(6)) return;
+                playerState.inventory.worm -= 1;
+                updateHUD();
                 fishingGame.gold = true;
                 setActivity('fishing_wait');
                 playerMesh.lookAt(-10, playerMesh.position.y, 45);
@@ -4005,6 +4278,7 @@
             }
             // kepiting
             updateCrabs(dt);
+            updateSeaCreatures(dt, elapsed);
             // anjing peliharaan mengikuti pemain
             updateDog(dt, elapsed);
             // HUD jam
@@ -4057,6 +4331,12 @@
                     fishingGame.cursorDir = 1;
                 }
                 fishCursorEl.style.left = `${fishingGame.cursorPos}%`;
+                fishingGame.speed = Math.min(fishingGame.speed * 1.002, fishingGame.maxSpeed || 4);
+                if (fishingGame.targetWidth > (fishingGame.minWidth || 12)) {
+                    fishingGame.targetWidth = Math.max(fishingGame.minWidth || 12, fishingGame.targetWidth * 0.999);
+                    const zoneEl2 = fishingGame.zoneEl || document.getElementById('fish-target-zone');
+                    zoneEl2.style.width = fishingGame.targetWidth + '%';
+                }
                 // Pelampung kail berguncang kuat saat ikan menggigit
                 bobberMesh.position.y = -0.2 + Math.sin(elapsed * 35) * 0.18;
             } else if (currentActivity === 'fishing_wait') {
@@ -4240,7 +4520,7 @@
                 playerMesh.userData.leftLegPivot.rotation.x = Math.sin(elapsed * 8) * 0.5;
                 playerMesh.userData.rightLegPivot.rotation.x = -Math.sin(elapsed * 8) * 0.5;
                 swimEnergyTick += dt;
-                if (swimEnergyTick >= 1) {
+                if (swimEnergyTick >= 1.6) {
                     swimEnergyTick = 0;
                     playerState.energy = Math.max(0, playerState.energy - 1);
                     updateHUD();
