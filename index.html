@@ -814,7 +814,8 @@
                     const dHome = Math.hypot(px, pz);
                     const onDockL = Math.abs(px) < 1.5 && pz >= 31 && pz <= 40.5;
                     const dIsletL = Math.hypot(px - ISLET.x, pz - ISLET.z);
-                    if (!(dHome < 32.5 || onDockL || dIsletL < ISLET.landR)) { playerMesh.position.x = 0; playerMesh.position.z = 6; }
+                    const onGoldL = Math.abs(px - GOLD_DOCK.x) <= GOLD_DOCK.hx && Math.abs(pz - GOLD_DOCK.z) <= GOLD_DOCK.hz;
+                    if (!(dHome < 32.5 || onDockL || dIsletL < ISLET.landR || onGoldL)) { playerMesh.position.x = 0; playerMesh.position.z = 6; }
                 })();
                 updateHUD();
                 return true;
@@ -1108,8 +1109,8 @@
             { key:'sayur', icon:'🥬', name:'Sayur', base:1, desc:'Hasil kebun & liar' }
         ];
         const TRADER_BUY = [
-            { id:'pupuk', icon:'🌿', name:'Pupuk Organik', cost:6, desc:'Percepat 50% pertumbuhan 1 petak kebun', once:false },
-            { id:'hoe', icon:'⛏️', name:'Cangkul', cost:25, desc:'Panen +1 sayur & tumbuh 25% lebih cepat', once:true },
+            { id:'pupuk', icon:'🌿', name:'Pupuk Organik', cost:6, desc:'Dipakai otomatis saat menanam: mulai 50% tumbuh (juga bisa untuk petak yang sedang tumbuh)', once:false },
+            { id:'hoe', icon:'⛏️', name:'Cangkul', cost:25, desc:'Saat menanam mulai 25% tumbuh • Panen +1 sayur • Tumbuh 25% lebih cepat', once:true },
             { id:'stove', icon:'🍳', name:'Kompor Portable', cost:30, desc:'Buka resep Ikan Saus Pulau', once:true }
         ];
         function traderSellPrice(item) {
@@ -2392,6 +2393,7 @@
 
         // ===== PULAU DAGANG: pulau kecil di timur, dicapai dengan berenang =====
         const ISLET = { x: 48, z: -10, landR: 8.5 };
+        const GOLD_DOCK = { x: -10, z: 35, hx: 1.5, hz: 2 };
         let isletFound = false;
         (function buildTraderIslet() {
             const isletSand = new THREE.Mesh(
@@ -2782,9 +2784,21 @@
                 }
                 playerState.inventory.sayur -= 1;
                 const vegNew = VEG_TYPES[Math.floor(Math.random() * VEG_TYPES.length)];
-                playerState.garden[i] = { plantedAt: Date.now(), veg: vegNew.id, boost: 0 };
+                // Cangkul menyiapkan tanah (+25%) dan pupuk langsung dipakai saat menanam (+50%):
+                // tanaman mulai tumbuh, bukan dari nol.
+                const gtPlant = gardenGrowTime();
+                let startBoost = 0;
+                let plantNote = '';
+                if (playerState.upgrades.hoe) { startBoost += gtPlant * 0.25; plantNote += ' ⛏️ Cangkul: mulai 25% tumbuh!'; }
+                if ((playerState.inventory.pupuk || 0) > 0) {
+                    playerState.inventory.pupuk -= 1;
+                    startBoost += gtPlant * 0.5;
+                    plantNote += ' 🌿 Pupuk dipakai: mulai 50% tumbuh!';
+                }
+                startBoost = Math.min(startBoost, gtPlant * 0.75);
+                playerState.garden[i] = { plantedAt: Date.now(), veg: vegNew.id, boost: startBoost };
                 addSkillXP('farming', 15);
-                showToast('🌱', vegNew.name + ' ditanam! Panen dalam 3 menit');
+                showToast('🌱', vegNew.name + ' ditanam!' + plantNote + ' Panen dalam 3 menit');
                 updateHUD(); updateGardenVisuals(); saveGame(true);
             }
         }
@@ -3027,7 +3041,7 @@
             if (!playerTentMesh) return;
             if (!isSleeping) {
                 isSleeping = true;
-                playerMesh.position.set(playerTentMesh.position.x - 1.1, 0.85, playerTentMesh.position.z + 0.9);
+                playerMesh.position.set(playerTentMesh.position.x - 1.1, 1.7, playerTentMesh.position.z + 0.9);
                 playerMesh.rotation.y = 0;
                 playerMesh.rotation.x = -1.5; // berbaring: kepala di bantal, kaki di ujung kasur
                 playerMesh.rotation.z = 0;
@@ -4114,8 +4128,9 @@
 
                     const distCenter = Math.hypot(nextX, nextZ);
                     const onDock = Math.abs(nextX) < 1.5 && nextZ >= 31 && nextZ <= 40.5;
+                    const onGoldDock = Math.abs(nextX - GOLD_DOCK.x) <= GOLD_DOCK.hx && Math.abs(nextZ - GOLD_DOCK.z) <= GOLD_DOCK.hz;
                     const dIslet = Math.hypot(nextX - ISLET.x, nextZ - ISLET.z);
-                    const inWater = distCenter >= 32.5 && !onDock && dIslet >= ISLET.landR;
+                    const inWater = distCenter >= 32.5 && !onDock && !onGoldDock && dIslet >= ISLET.landR;
 
                     if (!blockedByTree && !isSleeping && (distCenter < 55 || onDock || dIslet < ISLET.landR)) {
                         playerMesh.position.x = nextX;
@@ -4206,6 +4221,13 @@
                 showToast('🏝️', 'Pulau Dagang ditemukan! Jual hasil olahan di Toko Pak Dagang 🏪');
                 playSFX('success');
             }
+            // Status renang dihitung ulang dari posisi tiap frame: berhenti di daratan
+            // (dermaga, dermaga emas, Pulau Dagang) langsung kering, tidak lengket.
+            const swimDist = Math.hypot(playerMesh.position.x, playerMesh.position.z);
+            const swimOnDock = Math.abs(playerMesh.position.x) < 1.5 && playerMesh.position.z >= 31 && playerMesh.position.z <= 40.5;
+            const swimOnGold = Math.abs(playerMesh.position.x - GOLD_DOCK.x) <= GOLD_DOCK.hx && Math.abs(playerMesh.position.z - GOLD_DOCK.z) <= GOLD_DOCK.hz;
+            const swimOnIslet = Math.hypot(playerMesh.position.x - ISLET.x, playerMesh.position.z - ISLET.z) < ISLET.landR;
+            if (!(swimDist >= 32.5 && !swimOnDock && !swimOnGold && !swimOnIslet)) isSwimming = false;
             // Berenang telungkup: badan rebah menghadap ke depan (bukan berdiri),
             // tangan mendayung gaya bebas, kaki menendang, kepala tetap di atas air
             if (isSwimming) {
@@ -4261,7 +4283,7 @@
             if (isSleeping) {
                 playerMesh.rotation.x = -1.5;
                 playerMesh.rotation.z = 0;
-                playerMesh.position.y = 0.85 + Math.sin(elapsed * 1.5) * 0.02; // napas naik-turun pelan
+                playerMesh.position.y = 1.7 + Math.sin(elapsed * 1.5) * 0.02; // napas naik-turun pelan di atas kasur
                 sleepBlanket.visible = true;
                 playerMesh.userData.leftLegPivot.rotation.x = 0;
                 playerMesh.userData.rightLegPivot.rotation.x = 0;
