@@ -609,7 +609,7 @@
                 },
                 shipStagesDone: [false, false, false, false],
                 victoryTriggered: false,
-                avatarColors: { shirt: 0x2563eb, pants: 0x1e293b, hat: 0xf59e0b },
+                avatarColors: { shirt: 0x0d69ac, pants: 0xa4bd47, hat: 0xf59e0b }, // Roblox klasik: biru + hijau-kuning
                 gardenPlanted: [0, 0, 0, 0, 0, 0], // 0 = siap panen, >0 = timestamp tanam
                 tentPos: null,
                 playerPos: { x: -18, z: 22 }
@@ -1030,8 +1030,9 @@
                 hatColor = 0xf59e0b,
                 skinColor = 0xffd29d,
                 faceStyle = 'classic',
-                hatType = 'explorer', // 'explorer' | 'captain' | 'chef' | 'bandana'
-                hasBackpack = true
+                hatType = 'explorer', // 'explorer' | 'captain' | 'chef' | 'bandana' | 'none'
+                hasBackpack = true,
+                classic = false // true = Roblox klasik: lengan & bahu kuning, tanpa topi
             } = opts;
 
             const root = new THREE.Group();
@@ -1090,7 +1091,9 @@
 
             // Hat / Headgear
             const hatGroup = new THREE.Group();
-            if (hatType === 'explorer') {
+            if (hatType === 'none') {
+                // Tanpa topi — Roblox klasik: kepala kuning + stud terlihat
+            } else if (hatType === 'explorer') {
                 const brim = new THREE.Mesh(new THREE.BoxGeometry(1.05, 0.09, 1.05), hatMat);
                 brim.position.y = 0.35;
                 const crown = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.32, 0.72), hatMat);
@@ -1154,16 +1157,16 @@
             const lShoulderPos = new THREE.Vector3(-0.66, 2.02, 0);
             const rShoulderPos = new THREE.Vector3(0.66, 2.02, 0);
 
-            const lShoulderJoint = makeJointSphere(armRad, jointMatShirt); lShoulderJoint.position.copy(lShoulderPos);
-            const rShoulderJoint = makeJointSphere(armRad, jointMatShirt); rShoulderJoint.position.copy(rShoulderPos);
+            const lShoulderJoint = makeJointSphere(armRad, classic ? jointMatSkin : jointMatShirt); lShoulderJoint.position.copy(lShoulderPos);
+            const rShoulderJoint = makeJointSphere(armRad, classic ? jointMatSkin : jointMatShirt); rShoulderJoint.position.copy(rShoulderPos);
             const lElbowJoint = makeJointSphere(armRad * 0.96, jointMatSkin);
             const rElbowJoint = makeJointSphere(armRad * 0.96, jointMatSkin);
             const lWristJoint = makeJointSphere(armRad * 0.92, jointMatSkin);
             const rWristJoint = makeJointSphere(armRad * 0.92, jointMatSkin);
 
-            const lUpperArm = makeLimbSegment(upperArmLen, 0.34, 0.34, shirtMat);
+            const lUpperArm = makeLimbSegment(upperArmLen, 0.34, 0.34, classic ? skinMat : shirtMat);
             const lForeArm = makeLimbSegment(foreArmLen, 0.31, 0.31, skinMat);
-            const rUpperArm = makeLimbSegment(upperArmLen, 0.34, 0.34, shirtMat);
+            const rUpperArm = makeLimbSegment(upperArmLen, 0.34, 0.34, classic ? skinMat : shirtMat);
             const rForeArm = makeLimbSegment(foreArmLen, 0.31, 0.31, skinMat);
 
             bodyGroup.add(
@@ -2076,7 +2079,9 @@
             shirtColor: state.avatarColors.shirt,
             pantsColor: state.avatarColors.pants,
             hatColor: state.avatarColors.hat,
-            hatType: 'explorer',
+            skinColor: 0xf5cd30, // kuning khas Roblox
+            hatType: 'none', // tanpa topi — kepala kuning Roblox terlihat
+            classic: true, // lengan & bahu kuning ala Roblox klasik
             hasBackpack: true
         });
         playerRig.root.position.set(state.playerPos.x, getTerrainHeight(state.playerPos.x, state.playerPos.z), state.playerPos.z);
