@@ -684,34 +684,30 @@
         /********************************************************************
          * 3. PROCEDURAL ROBLOX TEXTURE GENERATOR (CANVAS TEXTURES)
          ********************************************************************/
-        function createStudTexture(baseHex, studHex, repeats = 1, grid = 4) {
+        // Tekstur natural: bercak organik + bintik halus, tanpa pola titik beraturan
+        // (menggantikan pola stud baseplate yang membuat tanah terlihat plastik)
+        function createNaturalTexture(baseHex, shadeHexes, repeats = 1, blotches = 90) {
             const c = document.createElement('canvas');
             c.width = 256; c.height = 256;
             const ctx = c.getContext('2d');
             ctx.fillStyle = baseHex;
             ctx.fillRect(0, 0, 256, 256);
-
-            const step = 256 / grid;
-            for (let gx = 0; gx < grid; gx++) {
-                for (let gy = 0; gy < grid; gy++) {
-                    const cx = gx * step + step * 0.5;
-                    const cy = gy * step + step * 0.5;
-                    // Soft stud shadow
-                    ctx.beginPath();
-                    ctx.arc(cx + 2, cy + 3, step * 0.28, 0, Math.PI * 2);
-                    ctx.fillStyle = 'rgba(0,0,0,0.16)';
-                    ctx.fill();
-                    // Stud cap
-                    ctx.beginPath();
-                    ctx.arc(cx, cy, step * 0.27, 0, Math.PI * 2);
-                    ctx.fillStyle = studHex;
-                    ctx.fill();
-                    // Top highlight rim
-                    ctx.beginPath();
-                    ctx.arc(cx - 2, cy - 2, step * 0.14, 0, Math.PI * 2);
-                    ctx.fillStyle = 'rgba(255,255,255,0.22)';
-                    ctx.fill();
-                }
+            // Bercak organik lembut (warna senada, alpha rendah, bentuk tak beraturan)
+            for (let i = 0; i < blotches; i++) {
+                const x = Math.random() * 256, y = Math.random() * 256;
+                const r = 12 + Math.random() * 42;
+                ctx.beginPath();
+                ctx.ellipse(x, y, r, r * (0.55 + Math.random() * 0.5), Math.random() * Math.PI, 0, Math.PI * 2);
+                ctx.fillStyle = shadeHexes[Math.floor(Math.random() * shadeHexes.length)];
+                ctx.globalAlpha = 0.10 + Math.random() * 0.16;
+                ctx.fill();
+            }
+            ctx.globalAlpha = 1;
+            // Bintik halus (butiran tanah / pasir / rumput)
+            for (let i = 0; i < 900; i++) {
+                const x = Math.random() * 256, y = Math.random() * 256;
+                ctx.fillStyle = Math.random() < 0.5 ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.08)';
+                ctx.fillRect(x, y, 1.6, 1.6);
             }
             const tex = new THREE.CanvasTexture(c);
             tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
@@ -1284,14 +1280,16 @@
             let activeProp = 'none';
 
             if (pose === 'walk') {
-                rig.walkPhase += dt * 10.5;
+                // Langkah sinkron dgn kecepatan jalan 10.5: amplitudo 0.60 x laju 17.5 = 10.5
+                // (sebelumnya 0.44 x 10.5 = 4.62 -> kaki meluncur / moonwalk di tanah)
+                rig.walkPhase += dt * 17.5;
                 const s = Math.sin(rig.walkPhase);
                 const c = Math.cos(rig.walkPhase);
                 bodyBob = Math.abs(s) * 0.07;
-                lFoot.set(-0.27, Math.max(0.02, c * 0.24), s * 0.44);
-                rFoot.set(0.27, Math.max(0.02, -c * 0.24), -s * 0.44);
-                lHand.set(-0.74, 1.12 + Math.max(0, -s * 0.12), -s * 0.42);
-                rHand.set(0.74, 1.12 + Math.max(0, s * 0.12), s * 0.42);
+                lFoot.set(-0.27, Math.max(0.02, c * 0.30), s * 0.60);
+                rFoot.set(0.27, Math.max(0.02, -c * 0.30), -s * 0.60);
+                lHand.set(-0.74, 1.12 + Math.max(0, -s * 0.14), -s * 0.55);
+                rHand.set(0.74, 1.12 + Math.max(0, s * 0.14), s * 0.55);
             } else if (pose === 'jump') {
                 lFoot.set(-0.28, 0.24, 0.28);
                 rFoot.set(0.28, 0.16, -0.24);
@@ -1458,7 +1456,7 @@
         }
 
         // 7.1 Animated 220-Unit Turquoise Roblox Ocean
-        const oceanTex = createStudTexture('#06b6d4', '#22d3ee', 26, 2);
+        const oceanTex = createNaturalTexture('#06b6d4', ['#0891b2', '#22d3ee', '#0e7490'], 18);
         const oceanMat = new THREE.MeshPhongMaterial({
             color: 0x06b6d4,
             map: oceanTex,
@@ -1471,7 +1469,7 @@
         scene.add(oceanMesh);
 
         // 7.2 Main Island Sand Base (Radius 60) with Roblox Studs
-        const sandTex = createStudTexture('#fde68a', '#fcd34d', 18, 4);
+        const sandTex = createNaturalTexture('#fde68a', ['#fcd34d', '#fbbf24', '#fef3c7'], 14);
         const sandMesh = new THREE.Mesh(
             new THREE.CylinderGeometry(58, 63, 2.2, 48),
             new THREE.MeshLambertMaterial({ map: sandTex })
@@ -1481,7 +1479,7 @@
         scene.add(sandMesh);
 
         // 7.3 Main Island Lush Grass Plateau (Radius 47) with Roblox Studs
-        const grassTex = createStudTexture('#22c55e', '#4ade80', 16, 4);
+        const grassTex = createNaturalTexture('#22c55e', ['#16a34a', '#4ade80', '#86efac', '#15803d'], 14);
         const grassMesh = new THREE.Mesh(
             new THREE.CylinderGeometry(46, 51, 1.5, 48),
             new THREE.MeshLambertMaterial({ map: grassTex })
@@ -1491,7 +1489,7 @@
         scene.add(grassMesh);
 
         // Decorative Blocky Roblox Cliff Boulders on North-East Edge
-        const rockTex = createStudTexture('#64748b', '#94a3b8', 3, 2);
+        const rockTex = createNaturalTexture('#64748b', ['#475569', '#94a3b8', '#334155'], 2);
         const rockMat = new THREE.MeshLambertMaterial({ map: rockTex });
         [[-38, -26, 4.5], [-42, -16, 3.2], [38, -28, 4.8], [44, -18, 3.0], [32, 34, 3.4]].forEach(([rx, rz, rs]) => {
             const b = new THREE.Mesh(new THREE.BoxGeometry(rs * 1.4, rs, rs * 1.2), rockMat);
@@ -1503,7 +1501,7 @@
         });
 
         // 7.4 CENTRAL PLAZA: CAMPFIRE, COOKING POT & BASE CAMP TENT
-        const plazaTex = createStudTexture('#cbd5e1', '#e2e8f0', 4, 4);
+        const plazaTex = createNaturalTexture('#a8a29e', ['#78716c', '#d6d3d1', '#57534e'], 3);
         const plazaMesh = new THREE.Mesh(
             new THREE.CylinderGeometry(7.2, 7.6, 0.24, 24),
             new THREE.MeshLambertMaterial({ map: plazaTex })
@@ -1671,7 +1669,7 @@
 
         const shipHullMat = new THREE.MeshLambertMaterial({ map: woodPlankTex, color: 0xb45309 });
         const shipDarkWood = new THREE.MeshLambertMaterial({ map: woodPlankTex, color: 0x78350f });
-        const bambooMat = new THREE.MeshLambertMaterial({ map: createStudTexture('#65a30d', '#84cc16', 2, 2) });
+        const bambooMat = new THREE.MeshLambertMaterial({ map: createNaturalTexture('#65a30d', ['#4d7c0f', '#84cc16', '#a3e635'], 2) });
         const ropeMat = new THREE.MeshLambertMaterial({ color: 0xd6b57a });
 
         // Base Wrecked Hull
@@ -1840,7 +1838,7 @@
             [-20, -18], [-27, -22], [-33, -15], [-24, -30],
             [-16, -28], [-32, -26], [-18, -11], [-28, -8]
         ];
-        const foliageTex = createStudTexture('#15803d', '#22c55e', 2, 2);
+        const foliageTex = createNaturalTexture('#15803d', ['#166534', '#22c55e', '#16a34a'], 2);
         const foliageMat = new THREE.MeshLambertMaterial({ map: foliageTex });
         woodPositions.forEach(([wx, wz], idx) => {
             const g = new THREE.Group();
@@ -1934,7 +1932,7 @@
         ];
         const gardenPlots = [];
         const gardenCoords = [[-6, -22], [0, -22], [6, -22], [-6, -27], [0, -27], [6, -27]];
-        const soilTex = createStudTexture('#78350f', '#92400e', 2, 2);
+        const soilTex = createNaturalTexture('#78350f', ['#451a03', '#92400e', '#a16207'], 2);
         const soilMat = new THREE.MeshLambertMaterial({ map: soilTex });
 
         // Fence around garden
